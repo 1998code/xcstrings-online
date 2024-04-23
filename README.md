@@ -9,6 +9,16 @@ https://x.com/1998design/status/1782763094835356030
 ## Sample XCStrings File by Apple
 https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizable.xcstrings
 
+## Roadmap
+| Features | Status |
+| - | - |
+| Import | ✅ Done |
+| Export | ✅ Done |
+| Edit | ✅ Done |
+| Auto Save to LocalStorage (Temporary) | Planning |
+| AI Translation | Planning |
+| Live Collaboration | Planning |
+
 ## Contribute to this project
 
 First, fork this project and run the development server:
