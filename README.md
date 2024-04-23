@@ -10,14 +10,14 @@ https://x.com/1998design/status/1782763094835356030
 https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizable.xcstrings
 
 ## Roadmap
-| Features | Status |
-| - | - |
-| Import | ✅ Done |
-| Export | ✅ Done |
-| Edit | ✅ Done |
-| Auto Save to LocalStorage (Temporary) | Planning |
-| AI Translation | Planning |
-| Live Collaboration | Planning |
+| Features | Status | Issue ID |
+| - | - | - |
+| Import | ✅ Done | - |
+| Export | ✅ Done | - |
+| Edit | ✅ Done | - |
+| Auto Save to LocalStorage (Temporary) | Planning | [#1](https://github.com/1998code/xcstrings-online/issues/1) |
+| AI Translation | Planning | [#2](https://github.com/1998code/xcstrings-online/issues/2) |
+| Live Collaboration | Planning | [#3](https://github.com/1998code/xcstrings-online/issues/3) |
 
 ## Contribute to this project
 
