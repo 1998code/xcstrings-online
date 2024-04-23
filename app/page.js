@@ -383,28 +383,26 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between gap-8 p-[3vh]">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <div>
+      <div className="z-10 max-w-7xl w-full items-center justify-between font-mono text-sm lg:flex">
+        <p className="fixed left-0 top-0 flex-1 flex w-full justify-between items-center gap-3 border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
           {/* Import Button */}
           <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50"
+            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
             onClick={importData}
           >
             Import
           </button>
-        </div>
-        <p className="fixed left-0 top-0 flex w-full justify-center gap-1 border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          <code className="font-mono font-bold">XCStrings</code> Online
-        </p>
-        <div>
+          
+          <span><code className="font-mono font-bold">XCStrings</code> Online</span>
+
           {/* Export Button */}
           <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50"
+            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
             onClick={exportData}
           >
             Export
           </button>
-        </div>
+        </p>
       </div>
 
       <div className="relative flex gap-6 place-items-start before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[480px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px]">
