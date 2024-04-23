@@ -385,6 +385,14 @@ export default function Home() {
     <main className="flex min-h-screen flex-col items-center justify-between gap-8 p-[3vh]">
       <div className="z-10 max-w-7xl w-full items-center justify-between font-mono text-sm lg:flex">
         <p className="fixed left-0 top-0 flex-1 flex w-full justify-between items-center gap-3 border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:bg-gray-200 dark:bg-transparent lg:p-4">
+          {/* Reset Button */}
+          <button
+            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
+            onClick={() => {setData(sampleData); alert("Data has been reset.")}}
+          >
+            Reset
+          </button>
+          
           {/* Import Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
@@ -392,8 +400,19 @@ export default function Home() {
           >
             Import
           </button>
-          
-          <span><code className="font-mono font-bold">XCStrings</code> Online</span>
+
+          <span class="flex-1 text-center">
+            <code className="font-mono font-bold">XCStrings</code> Online
+          </span>
+
+          {/* Github Link */}
+          <a
+            href="https://github.com/1998code/xcstrings-online"
+            target="_blank"
+            className="flex items-center gap-2 border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
+          >
+            GitHub Repo
+          </a>
 
           {/* Export Button */}
           <button
