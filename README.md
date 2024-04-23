@@ -1,7 +1,7 @@
 # XCStrings Online Editor
 ### Edit Xcode String Catalog anywhere, anytime.
 
-<img width="2443" alt="Screenshot 2024-04-23 at 10 30 14 PM" src="https://github.com/1998code/xcstrings-online/assets/54872601/cd80ec49-854b-4797-bad9-135c5e7fe4e9">
+<img width="1112" alt="Screenshot 2024-04-23 at 10 33 40 PM" src="https://github.com/1998code/xcstrings-online/assets/54872601/741fcb83-dbc4-4bf4-87f8-d4a92c1ca567">
 
 ## Video Demo
 https://x.com/1998design/status/1782763094835356030
