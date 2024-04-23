@@ -1,13 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 
 export default function Home() {
   const languages = [
     {
-      code: "en",
-      name: "English",
+      code: "sq",
+      name: "Albanian"
+    },
+    {
+      code: "ar",
+      name: "Arabic",
+    },
+    {
+      code: "eu",
+      name: "Basque",
+    },
+    {
+      code: "bg",
+      name: "Bulgarian",
+    },
+    {
+      code: "ca",
+      name: "Catalan",
+    },
+    {
+      code: "zh-Hans",
+      name: "Simplified Chinese",
     },
     {
       code: "zh-Hant",
@@ -18,45 +37,145 @@ export default function Home() {
       name: "Hong Kong Chinese",
     },
     {
-      code: "ar",
-      name: "Arabic",
+      code: "hr",
+      name: "Croatian",
+    },
+    {
+      code: "cs",
+      name: "Czech",
+    },
+    {
+      code: "da",
+      name: "Danish",
+    },
+    {
+      code: "nl",
+      name: "Dutch",
+    },
+    {
+      code: "en",
+      name: "English",
+    },
+    {
+      code: "et",
+      name: "Estonian",
+    },
+    {
+      code: "fi",
+      name: "Finnish",
     },
     {
       code: "fr",
       name: "French",
     },
     {
-      code: "it",
-      name: "Italian",
+      code: "gl",
+      name: "Galician",
+    },
+    {
+      code: "de",
+      name: "German",
+    },
+    {
+      code: "el",
+      name: "Greek",
     },
     {
       code: "he",
       name: "Hebrew",
     },
     {
+      code: "hu",
+      name: "Hungarian",
+    },
+    {
+      code: "is",
+      name: "Icelandic",
+    },
+    {
+      code: "id",
+      name: "Indonesian",
+    },
+    {
+      code: "it",
+      name: "Italian",
+    },
+    {
       code: "ja",
       name: "Japanese",
+    },
+    {
+      code: "ko",
+      name: "Korean",
+    },
+    {
+      code: "lv",
+      name: "Latvian",
+    },
+    {
+      code: "lt",
+      name: "Lithuanian",
+    },
+    {
+      code: "mk",
+      name: "Macedonian",
+    },
+    {
+      code: "mt",
+      name: "Maltese",
+    },
+    {
+      code: "no",
+      name: "Norwegian",
+    },
+    {
+      code: "pl",
+      name: "Polish",
     },
     {
       code: "pt-BR",
       name: "Portuguese (Brazil)",
     },
     {
+      code: "ro",
+      name: "Romanian",
+    },
+    {
       code: "ru",
       name: "Russian",
+    },
+    {
+      code: "sr",
+      name: "Serbian",
+    },
+    {
+      code: "sk",
+      name: "Slovak",
+    },
+    {
+      code: "sl",
+      name: "Slovenian",
+    },
+    {
+      code: "es",
+      name: "Spanish",
     },
     {
       code: "sv",
       name: "Swedish",
     },
     {
-      code: "uk",
-      name: "Ukrainian",
+      code: "th",
+      name: "Thai",
     },
     {
-      code: "zh-Hans",
-      name: "Simplified Chinese",
+      code: "tr",
+      name: "Turkish",
     },
+    {
+      code: "uk",
+      name: "Ukrainian",
+    }
   ];
 
   const sampleData = {
@@ -388,11 +507,11 @@ export default function Home() {
           {/* Reset Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={() => {setData(sampleData); alert("Data has been reset.")}}
+            onClick={() => { setData(sampleData); alert("Data has been reset.") }}
           >
             Reset
           </button>
-          
+
           {/* Import Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
@@ -405,6 +524,14 @@ export default function Home() {
             <code className="font-mono font-bold">XCStrings</code> Online
           </span>
 
+          {/* Export Button */}
+          <button
+            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
+            onClick={exportData}
+          >
+            Export
+          </button>
+
           {/* Github Link */}
           <a
             href="https://github.com/1998code/xcstrings-online"
@@ -413,14 +540,6 @@ export default function Home() {
           >
             GitHub Repo
           </a>
-
-          {/* Export Button */}
-          <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={exportData}
-          >
-            Export
-          </button>
         </p>
       </div>
 
@@ -430,7 +549,7 @@ export default function Home() {
           <h2 className="text-lg font-bold">Languages</h2>
           <ul className="flex flex-col gap-2">
             {Object.keys(data.strings[Object.keys(data.strings)[0]].localizations).map((lang) => (
-              <li key={lang} 
+              <li key={lang}
                 className={`flex justify-between gap-6 cursor-pointer whitespace-nowrap ${selectedLanguage === lang ? "opacity-100" : "opacity-50"} transition-all`}
                 onClick={() => setSelectedLanguage(lang)}>
                 <span>{languages.find((l) => l.code === lang)?.name}</span>
@@ -447,10 +566,10 @@ export default function Home() {
               <tr className="whitespace-nowrap divide-x divide-gray-700">
                 <th className="text-left p-2">Key</th>
                 <th className="text-left p-2 min-w-[25vw]">
-                    {languages.find((l) => l.code === selectedLanguage).name} <sup><small class="text-gray-500">{selectedLanguage}</small></sup>
+                  {languages.find((l) => l.code === selectedLanguage)?.name} <sup><small class="text-gray-500">{selectedLanguage}</small></sup>
                 </th>
-                <th className="text-left p-2 min-w-[20vw]">Comment</th>
-                <th className="text-left p-2">State</th>
+                <th className="text-left p-2 min-w-[20vw]">💬 Comment</th>
+                <th className="text-left p-2">🤔 State</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
@@ -479,22 +598,12 @@ export default function Home() {
                         setData(newData);
                       }}
                       placeholder="Input here..."
-                      className="w-full text-white bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-800 hover:placeholder-gray-700"
+                      className="w-full text-gray-400 bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-800 hover:placeholder-gray-700"
                     />
-                    {/* <input
-                      type="text"
-                      value={data.strings[key].comment}
-                      onChange={(e) => {
-                        const newData = { ...data };
-                        newData.strings[key].comment = e.target.value;
-                        setData(newData);
-                      }}
-                      placeholder="Input here..."
-                      className="w-full text-white bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-800 hover:placeholder-gray-700"
-                    /> */}
                   </td>
                   <td className="p-2">
-                    {data.strings[key].localizations[selectedLanguage]?.stringUnit.state.charAt(0).toUpperCase() + data.strings[key].localizations[selectedLanguage]?.stringUnit.state.slice(1)}
+                    {data.strings[key].localizations[selectedLanguage]?.stringUnit.state === "translated" ? "✅ Done" : "👷 NEW"} 
+                    {/* {data.strings[key].localizations[selectedLanguage]?.stringUnit.state.charAt(0).toUpperCase() + data.strings[key].localizations[selectedLanguage]?.stringUnit.state.slice(1)} */}
                   </td>
                 </tr>
               ))}
