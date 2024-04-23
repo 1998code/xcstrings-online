@@ -384,7 +384,7 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between gap-8 p-[3vh]">
       <div className="z-10 max-w-7xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex-1 flex w-full justify-between items-center gap-3 border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
+        <p className="fixed left-0 top-0 flex-1 flex w-full justify-between items-center gap-3 border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:bg-gray-200 dark:bg-transparent lg:p-4">
           {/* Import Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
