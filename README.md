@@ -1,5 +1,8 @@
+![image](https://github.com/1998code/xcstrings-online/assets/54872601/676ee304-b9ff-4e71-b88d-a985c57d56b1)
+
 # XCStrings Online Editor
 ### Edit Xcode String Catalog anywhere, anytime.
+
 Demo: https://xcstrings-online.vercel.app
 
 <img width="1112" alt="Screenshot 2024-04-23 at 10 33 40 PM" src="https://github.com/1998code/xcstrings-online/assets/54872601/741fcb83-dbc4-4bf4-87f8-d4a92c1ca567">
@@ -38,3 +41,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## License
 MIT
+
+## Reference
+https://developer.apple.com/documentation/xcode/localizing-and-varying-text-with-a-string-catalog
+Xcode, Swift, and SwiftUI are trademarks of Apple.
