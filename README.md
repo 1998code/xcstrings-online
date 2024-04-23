@@ -6,6 +6,9 @@
 ## Video Demo
 https://x.com/1998design/status/1782763094835356030
 
+## Sample XCStrings File by Apple
+https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizable.xcstrings
+
 ## Contribute to this project
 
 First, fork this project and run the development server:
