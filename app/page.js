@@ -476,6 +476,7 @@ export default function Home() {
 
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [data, setData] = useState(sampleData);
+  const [isTranslating, setIsTranslating] = useState(false);
 
   // Load previously auto-saved data from local storage on mount.
   // Kept in useEffect (not useState initializer) to avoid SSR hydration mismatch.
@@ -514,6 +515,62 @@ export default function Home() {
     fileInput.click();
   }
 
+  // Translate every key from the source language into the currently
+  // selected language using the Google Translate endpoint (/api/translate).
+  async function translateAll() {
+    const sourceLanguage = data.sourceLanguage || "en";
+    if (selectedLanguage === sourceLanguage) {
+      alert(
+        "The selected language is the source language. Pick a different language to translate into."
+      );
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const keys = Object.keys(data.strings);
+      const results = await Promise.all(
+        keys.map(async (key) => {
+          const sourceText =
+            data.strings[key].localizations[sourceLanguage]?.stringUnit?.value ||
+            key;
+          try {
+            const res = await fetch(
+              `/api/translate?text=${encodeURIComponent(
+                sourceText
+              )}&from=${sourceLanguage}&to=${selectedLanguage}`
+            );
+            const json = await res.json();
+            return { key, value: json.output ?? null };
+          } catch (e) {
+            console.error(`Failed to translate "${key}":`, e);
+            return { key, value: null };
+          }
+        })
+      );
+
+      const newData = { ...data, strings: { ...data.strings } };
+      for (const { key, value } of results) {
+        if (value == null) continue;
+        const stringEntry = { ...newData.strings[key] };
+        const localizations = { ...stringEntry.localizations };
+        localizations[selectedLanguage] = {
+          ...(localizations[selectedLanguage] || {}),
+          stringUnit: {
+            ...(localizations[selectedLanguage]?.stringUnit || {}),
+            state: "translated",
+            value,
+          },
+        };
+        stringEntry.localizations = localizations;
+        newData.strings[key] = stringEntry;
+      }
+      setData(newData);
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
   function exportData() {
     // Save data JSON as .xcstrings file
     const element = document.createElement("a");
@@ -544,7 +601,17 @@ export default function Home() {
             Import
           </button>
 
-          <span class="flex-1 text-center">
+          {/* Translate All Button */}
+          <button
+            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={translateAll}
+            disabled={isTranslating}
+            title={`Translate all keys into ${languages.find((l) => l.code === selectedLanguage)?.name || selectedLanguage}`}
+          >
+            {isTranslating ? "Translating…" : "✨ Translate"}
+          </button>
+
+          <span className="flex-1 text-center">
             <code className="font-mono font-bold">XCStrings</code> Online
           </span>
 
