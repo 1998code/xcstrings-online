@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const STORAGE_KEY = "xcstrings-online-data";
 
 export default function Home() {
   const languages = [
@@ -475,6 +477,28 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [data, setData] = useState(sampleData);
 
+  // Load previously auto-saved data from local storage on mount.
+  // Kept in useEffect (not useState initializer) to avoid SSR hydration mismatch.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        setData(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error("Failed to load saved data from local storage:", e);
+    }
+  }, []);
+
+  // Auto-save data to local storage whenever it changes (temporary safeguard).
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.error("Failed to auto-save data to local storage:", e);
+    }
+  }, [data]);
+
   function importData() {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
@@ -507,7 +531,7 @@ export default function Home() {
           {/* Reset Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={() => { setData(sampleData); alert("Data has been reset.") }}
+            onClick={() => { localStorage.removeItem(STORAGE_KEY); setData(sampleData); alert("Data has been reset.") }}
           >
             Reset
           </button>
