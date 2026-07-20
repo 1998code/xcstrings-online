@@ -679,155 +679,243 @@ export default function Home() {
     element.click();
   }
 
+  const btnBase =
+    "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60";
+  const btnSecondary = `${btnBase} px-3.5 py-2 text-sm text-gray-700 dark:text-gray-100 bg-white/70 dark:bg-white/10 border border-black/[0.06] dark:border-white/10 shadow-sm hover:bg-white dark:hover:bg-white/20`;
+  const btnPrimary = `${btnBase} px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/25`;
+  const iconBtn = `${btnBase} h-9 w-9 text-gray-700 dark:text-gray-100 bg-white/70 dark:bg-white/10 border border-black/[0.06] dark:border-white/10 shadow-sm hover:bg-white dark:hover:bg-white/20`;
+  const card =
+    "rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/70 dark:bg-white/[0.06] backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]";
+
+  const selectedLangName =
+    languages.find((l) => l.code === selectedLanguage)?.name || selectedLanguage;
+  const localeCodes = Object.keys(
+    data.strings[Object.keys(data.strings)[0]].localizations
+  );
+
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-between gap-8 p-[3vh]"
+      className="relative flex min-h-screen flex-col items-center gap-6 px-4 py-6 sm:px-6 sm:py-8"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Drag-and-drop overlay */}
       {isDragging && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
-          <div className="rounded-2xl border-2 border-dashed border-white/70 bg-white/10 px-10 py-8 text-center text-white shadow-xl">
-            <div className="text-4xl">📥</div>
-            <p className="mt-2 text-lg font-semibold">Drop your .xcstrings file</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-md pointer-events-none">
+          <div className="rounded-3xl border border-dashed border-white/70 bg-white/15 px-12 py-10 text-center text-white shadow-2xl">
+            <i className="fa-solid fa-cloud-arrow-up text-5xl" />
+            <p className="mt-4 text-lg font-semibold tracking-tight">
+              Drop your .xcstrings file
+            </p>
           </div>
         </div>
       )}
-      <div className="z-10 max-w-7xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex-1 flex w-full justify-between items-center gap-3 border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:bg-gray-200 dark:bg-transparent lg:p-4">
-          {/* Reset Button */}
-          <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={resetData}
-          >
-            Reset
-          </button>
 
-          {/* Upload Button */}
-          <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={importData}
-          >
-            Upload
-          </button>
+      {/* Toolbar */}
+      <header
+        className={`${card} sticky top-4 z-30 flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3`}
+      >
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 px-1">
+          <i className="fa-brands fa-apple text-xl text-gray-900 dark:text-white" />
+          <span className="text-[15px] tracking-tight">
+            <span className="font-semibold">XCStrings</span>{" "}
+            <span className="text-gray-500 dark:text-gray-400">Online</span>
+          </span>
+        </div>
 
-          {/* Translate All Button */}
+        {/* Actions */}
+        <div className="flex items-center gap-2">
           <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+            className={btnPrimary}
             onClick={translateAll}
             disabled={isTranslating}
-            title={`Translate all keys into ${languages.find((l) => l.code === selectedLanguage)?.name || selectedLanguage}`}
+            title={`Translate all keys into ${selectedLangName}`}
           >
-            {isTranslating ? "Translating…" : "✨ Translate"}
+            {isTranslating ? (
+              <i className="fa-solid fa-circle-notch fa-spin" />
+            ) : (
+              <i className="fa-solid fa-wand-magic-sparkles" />
+            )}
+            <span className="hidden sm:inline">
+              {isTranslating ? "Translating…" : "Translate"}
+            </span>
           </button>
 
-          <span className="flex-1 text-center">
-            <code className="font-mono font-bold">XCStrings</code> Online
-          </span>
-
-          {/* Download Button */}
-          <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={exportData}
-          >
-            Download
+          <button className={btnSecondary} onClick={importData} title="Upload a .xcstrings file">
+            <i className="fa-solid fa-arrow-up-from-bracket" />
+            <span className="hidden md:inline">Upload</span>
           </button>
 
-          {/* Theme Toggle */}
+          <button className={btnSecondary} onClick={exportData} title="Download .xcstrings file">
+            <i className="fa-solid fa-arrow-down-to-bracket" />
+            <span className="hidden md:inline">Download</span>
+          </button>
+
+          <button className={btnSecondary} onClick={resetData} title="Reset to sample data">
+            <i className="fa-solid fa-arrow-rotate-left" />
+            <span className="hidden md:inline">Reset</span>
+          </button>
+
+          <div className="mx-0.5 h-6 w-px bg-black/10 dark:bg-white/10" />
+
           <button
-            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
+            className={iconBtn}
             onClick={toggleTheme}
             aria-label="Toggle light/dark mode"
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           >
-            {theme === "dark" ? "☀️" : "🌙"}
+            <i className={`fa-solid ${theme === "dark" ? "fa-sun" : "fa-moon"}`} />
           </button>
 
-          {/* Github Link */}
           <a
             href="https://github.com/1998code/xcstrings-online"
             target="_blank"
-            className="flex items-center gap-2 border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
+            rel="noopener noreferrer"
+            className={iconBtn}
+            aria-label="GitHub repository"
+            title="GitHub repository"
           >
-            GitHub Repo
+            <i className="fa-brands fa-github" />
           </a>
-        </p>
-      </div>
-
-      <div className="relative flex gap-6 place-items-start">
-        {/* Languages List */}
-        <div className="sticky top-0 flex flex-col gap-2 p-4 bg-white rounded-xl shadow-md dark:bg-gray-900/50">
-          <h2 className="text-lg font-bold">Languages</h2>
-          <ul className="flex flex-col gap-2">
-            {Object.keys(data.strings[Object.keys(data.strings)[0]].localizations).map((lang) => (
-              <li key={lang}
-                className={`flex justify-between gap-6 cursor-pointer whitespace-nowrap ${selectedLanguage === lang ? "opacity-100" : "opacity-50"} transition-all`}
-                onClick={() => setSelectedLanguage(lang)}>
-                <span>{languages.find((l) => l.code === lang)?.name}</span>
-                <span className="text-gray-500">{lang}</span>
-              </li>
-            ))}
-          </ul>
         </div>
+      </header>
+
+      {/* Content */}
+      <div className="flex w-full max-w-7xl flex-col items-start gap-6 lg:flex-row">
+        {/* Languages List */}
+        <aside className={`${card} w-full shrink-0 p-3 lg:sticky lg:top-24 lg:w-64`}>
+          <div className="flex items-center justify-between px-2 py-1.5">
+            <h2 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-white">
+              Languages
+            </h2>
+            <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400">
+              {localeCodes.length}
+            </span>
+          </div>
+          <ul className="mt-1 flex max-h-[60vh] flex-col gap-0.5 overflow-y-auto lg:max-h-none">
+            {localeCodes.map((lang) => {
+              const isActive = selectedLanguage === lang;
+              return (
+                <li key={lang}>
+                  <button
+                    onClick={() => setSelectedLanguage(lang)}
+                    className={`flex w-full items-center justify-between gap-4 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-gray-700 hover:bg-black/[0.05] dark:text-gray-200 dark:hover:bg-white/10"
+                    }`}
+                  >
+                    <span className="truncate font-medium">
+                      {languages.find((l) => l.code === lang)?.name || lang}
+                    </span>
+                    <span
+                      className={`shrink-0 text-xs ${
+                        isActive ? "text-white/70" : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    >
+                      {lang}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
 
         {/* Table with inline edit feature */}
-        <div className="bg-white rounded-xl shadow-md dark:bg-gray-900/50 p-3 max-w-[80vw] overflow-auto">
-          <table className="w-full">
-            <thead className="border-b border-gray-300 dark:border-gray-700">
-              <tr className="whitespace-nowrap divide-x divide-gray-300 dark:divide-gray-700">
-                <th className="text-left p-2">Key</th>
-                <th className="text-left p-2 min-w-[25vw]">
-                  {languages.find((l) => l.code === selectedLanguage)?.name} <sup><small class="text-gray-500">{selectedLanguage}</small></sup>
-                </th>
-                <th className="text-left p-2 min-w-[20vw]">💬 Comment</th>
-                <th className="text-left p-2">🤔 State</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-300 dark:divide-gray-700">
-              {Object.keys(data.strings).map((key) => (
-                <tr key={key} className="whitespace-nowrap divide-x divide-gray-300 dark:divide-gray-700">
-                  <td className="p-2">{key}</td>
-                  <td className="p-2">
-                    <input
-                      type="text"
-                      value={data.strings[key].localizations[selectedLanguage]?.stringUnit.value}
-                      onChange={(e) => {
-                        const newData = { ...data };
-                        newData.strings[key].localizations[selectedLanguage].stringUnit.value = e.target.value;
-                        setData(newData);
-                      }}
-                      placeholder="Input here..."
-                      className="w-full text-gray-900 dark:text-white bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-400 dark:placeholder-gray-700"
-                    />
-                  </td>
-                  <td className="p-2">
-                    <textarea
-                      value={data.strings[key].comment}
-                      onChange={(e) => {
-                        const newData = { ...data };
-                        newData.strings[key].comment = e.target.value;
-                        setData(newData);
-                      }}
-                      placeholder="Input here..."
-                      className="w-full text-gray-600 dark:text-gray-400 bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-400 dark:placeholder-gray-700"
-                    />
-                  </td>
-                  <td className="p-2">
-                    {data.strings[key].localizations[selectedLanguage]?.stringUnit.state === "translated" ? "✅ Done" : "👷 NEW"} 
-                    {/* {data.strings[key].localizations[selectedLanguage]?.stringUnit.state.charAt(0).toUpperCase() + data.strings[key].localizations[selectedLanguage]?.stringUnit.state.slice(1)} */}
-                  </td>
+        <section className={`${card} w-full overflow-hidden lg:flex-1`}>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-black/[0.07] text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:border-white/10 dark:text-gray-400">
+                  <th className="whitespace-nowrap px-4 py-3 font-semibold">
+                    <i className="fa-solid fa-key mr-2 text-gray-400" />
+                    Key
+                  </th>
+                  <th className="min-w-[22vw] whitespace-nowrap px-4 py-3 font-semibold">
+                    <i className="fa-solid fa-language mr-2 text-gray-400" />
+                    {selectedLangName}
+                    <span className="ml-1.5 font-normal normal-case text-gray-400">
+                      {selectedLanguage}
+                    </span>
+                  </th>
+                  <th className="min-w-[18vw] whitespace-nowrap px-4 py-3 font-semibold">
+                    <i className="fa-solid fa-comment-dots mr-2 text-gray-400" />
+                    Comment
+                  </th>
+                  <th className="whitespace-nowrap px-4 py-3 font-semibold">
+                    <i className="fa-solid fa-circle-check mr-2 text-gray-400" />
+                    State
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.08]">
+                {Object.keys(data.strings).map((key) => {
+                  const isDone =
+                    data.strings[key].localizations[selectedLanguage]?.stringUnit
+                      .state === "translated";
+                  return (
+                    <tr
+                      key={key}
+                      className="transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+                    >
+                      <td className="whitespace-nowrap px-4 py-2.5 font-medium text-gray-900 dark:text-white">
+                        {key}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <input
+                          type="text"
+                          value={
+                            data.strings[key].localizations[selectedLanguage]
+                              ?.stringUnit.value
+                          }
+                          onChange={(e) => {
+                            const newData = { ...data };
+                            newData.strings[key].localizations[
+                              selectedLanguage
+                            ].stringUnit.value = e.target.value;
+                            setData(newData);
+                          }}
+                          placeholder="Add translation…"
+                          className="w-full rounded-md bg-transparent px-1.5 py-1 text-gray-900 transition-colors focus:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:text-white dark:placeholder-gray-600 dark:focus:bg-white/[0.06]"
+                        />
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <textarea
+                          rows={1}
+                          value={data.strings[key].comment || ""}
+                          onChange={(e) => {
+                            const newData = { ...data };
+                            newData.strings[key].comment = e.target.value;
+                            setData(newData);
+                          }}
+                          placeholder="Add comment…"
+                          className="w-full resize-y rounded-md bg-transparent px-1.5 py-1 text-gray-600 transition-colors focus:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:text-gray-300 dark:placeholder-gray-600 dark:focus:bg-white/[0.06]"
+                        />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2.5">
+                        {isDone ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                            <i className="fa-solid fa-circle-check" />
+                            Done
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                            <i className="fa-solid fa-circle-dot" />
+                            New
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
-
-      <footer>
-
-      </footer>
     </main>
   );
 }
