@@ -10,28 +10,28 @@
   --foreground-rgb: 229, 231, 235;
 }
 
-/* Light mesh gradient — subtle, professional, low saturation */
+/* Light mesh gradient — soft, colorful, professional */
 body {
   color: rgb(var(--foreground-rgb));
   min-height: 100vh;
-  background-color: #f7f8fa;
+  background-color: #eef1f7;
   background-image:
-    radial-gradient(at 15% 20%, hsla(217, 45%, 82%, 0.35) 0px, transparent 55%),
-    radial-gradient(at 85% 15%, hsla(210, 30%, 85%, 0.30) 0px, transparent 50%),
-    radial-gradient(at 80% 85%, hsla(220, 40%, 84%, 0.30) 0px, transparent 52%),
-    radial-gradient(at 20% 90%, hsla(215, 25%, 86%, 0.28) 0px, transparent 50%);
+    radial-gradient(at 12% 18%, hsla(217, 90%, 72%, 0.45) 0px, transparent 55%),
+    radial-gradient(at 88% 12%, hsla(280, 80%, 78%, 0.38) 0px, transparent 50%),
+    radial-gradient(at 82% 88%, hsla(190, 85%, 70%, 0.40) 0px, transparent 52%),
+    radial-gradient(at 18% 92%, hsla(330, 75%, 80%, 0.35) 0px, transparent 50%);
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
 
-/* Dark mesh gradient — subtle, professional, low saturation */
+/* Dark mesh gradient — deep, colorful, professional */
 .dark body {
   background-color: #0a0c10;
   background-image:
-    radial-gradient(at 15% 20%, hsla(217, 40%, 20%, 0.45) 0px, transparent 55%),
-    radial-gradient(at 85% 15%, hsla(210, 35%, 16%, 0.40) 0px, transparent 50%),
-    radial-gradient(at 80% 85%, hsla(220, 45%, 18%, 0.40) 0px, transparent 52%),
-    radial-gradient(at 20% 90%, hsla(215, 30%, 15%, 0.38) 0px, transparent 50%);
+    radial-gradient(at 12% 18%, hsla(217, 85%, 45%, 0.40) 0px, transparent 55%),
+    radial-gradient(at 88% 12%, hsla(280, 75%, 50%, 0.32) 0px, transparent 50%),
+    radial-gradient(at 82% 88%, hsla(190, 80%, 45%, 0.32) 0px, transparent 52%),
+    radial-gradient(at 18% 92%, hsla(330, 70%, 50%, 0.28) 0px, transparent 50%);
   background-attachment: fixed;
   background-repeat: no-repeat;
 }
