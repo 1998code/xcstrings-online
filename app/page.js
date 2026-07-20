@@ -477,7 +477,29 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [data, setData] = useState(sampleData);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [theme, setTheme] = useState("light");
+  const [isDragging, setIsDragging] = useState(false);
   const hasLoadedFromStorageRef = useRef(false);
+
+  // Sync the toggle with the theme the inline <head> script already applied.
+  useEffect(() => {
+    setTheme(
+      document.documentElement.classList.contains("dark") ? "dark" : "light"
+    );
+  }, []);
+
+  function toggleTheme() {
+    const next = document.documentElement.classList.contains("dark")
+      ? "light"
+      : "dark";
+    document.documentElement.classList.toggle("dark", next === "dark");
+    try {
+      localStorage.setItem("theme", next);
+    } catch (e) {
+      console.error("Failed to persist theme preference:", e);
+    }
+    setTheme(next);
+  }
 
   // Load previously auto-saved data from local storage on mount.
   // Kept in useEffect (not useState initializer) to avoid SSR hydration mismatch.
@@ -529,19 +551,51 @@ export default function Home() {
     return res.json();
   }
 
+  // Read a .xcstrings file and load it into the editor. Shared by the Import
+  // button and drag-and-drop.
+  function loadFile(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        setData(JSON.parse(e.target.result));
+      } catch (err) {
+        console.error("Failed to parse .xcstrings file:", err);
+        alert("Could not read that file. Make sure it is a valid .xcstrings catalog.");
+      }
+    };
+    reader.readAsText(file);
+  }
+
   function importData() {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
     fileInput.accept = ".xcstrings";
     fileInput.addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setData(JSON.parse(e.target.result));
-      };
-      reader.readAsText(file);
+      loadFile(e.target.files[0]);
     });
     fileInput.click();
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault();
+    if (!isDragging) setIsDragging(true);
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault();
+    // Only clear when the pointer actually leaves the window, not when moving
+    // between child elements.
+    if (e.relatedTarget === null || !e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragging(false);
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) loadFile(file);
   }
 
   // Translate every key from the source language into the currently
@@ -626,7 +680,21 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between gap-8 p-[3vh]">
+    <main
+      className="relative flex min-h-screen flex-col items-center justify-between gap-8 p-[3vh]"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag-and-drop overlay */}
+      {isDragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm pointer-events-none">
+          <div className="rounded-2xl border-2 border-dashed border-white/70 bg-white/10 px-10 py-8 text-center text-white shadow-xl">
+            <div className="text-4xl">📥</div>
+            <p className="mt-2 text-lg font-semibold">Drop your .xcstrings file</p>
+          </div>
+        </div>
+      )}
       <div className="z-10 max-w-7xl w-full items-center justify-between font-mono text-sm lg:flex">
         <p className="fixed left-0 top-0 flex-1 flex w-full justify-between items-center gap-3 border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:from-inherit lg:static lg:w-auto lg:rounded-xl lg:bg-gray-200 dark:bg-transparent lg:p-4">
           {/* Reset Button */}
@@ -637,12 +705,12 @@ export default function Home() {
             Reset
           </button>
 
-          {/* Import Button */}
+          {/* Upload Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
             onClick={importData}
           >
-            Import
+            Upload
           </button>
 
           {/* Translate All Button */}
@@ -659,12 +727,22 @@ export default function Home() {
             <code className="font-mono font-bold">XCStrings</code> Online
           </span>
 
-          {/* Export Button */}
+          {/* Download Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
             onClick={exportData}
           >
-            Export
+            Download
+          </button>
+
+          {/* Theme Toggle */}
+          <button
+            className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
+            onClick={toggleTheme}
+            aria-label="Toggle light/dark mode"
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {theme === "dark" ? "☀️" : "🌙"}
           </button>
 
           {/* Github Link */}
@@ -678,7 +756,7 @@ export default function Home() {
         </p>
       </div>
 
-      <div className="relative flex gap-6 place-items-start before:absolute before:h-[300px] before:w-full sm:before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full sm:after:w-[480px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px]">
+      <div className="relative flex gap-6 place-items-start">
         {/* Languages List */}
         <div className="sticky top-0 flex flex-col gap-2 p-4 bg-white rounded-xl shadow-md dark:bg-gray-900/50">
           <h2 className="text-lg font-bold">Languages</h2>
@@ -697,8 +775,8 @@ export default function Home() {
         {/* Table with inline edit feature */}
         <div className="bg-white rounded-xl shadow-md dark:bg-gray-900/50 p-3 max-w-[80vw] overflow-auto">
           <table className="w-full">
-            <thead className="border-b border-gray-700">
-              <tr className="whitespace-nowrap divide-x divide-gray-700">
+            <thead className="border-b border-gray-300 dark:border-gray-700">
+              <tr className="whitespace-nowrap divide-x divide-gray-300 dark:divide-gray-700">
                 <th className="text-left p-2">Key</th>
                 <th className="text-left p-2 min-w-[25vw]">
                   {languages.find((l) => l.code === selectedLanguage)?.name} <sup><small class="text-gray-500">{selectedLanguage}</small></sup>
@@ -707,9 +785,9 @@ export default function Home() {
                 <th className="text-left p-2">🤔 State</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-700">
+            <tbody className="divide-y divide-gray-300 dark:divide-gray-700">
               {Object.keys(data.strings).map((key) => (
-                <tr key={key} className="whitespace-nowrap divide-x divide-gray-700">
+                <tr key={key} className="whitespace-nowrap divide-x divide-gray-300 dark:divide-gray-700">
                   <td className="p-2">{key}</td>
                   <td className="p-2">
                     <input
@@ -721,7 +799,7 @@ export default function Home() {
                         setData(newData);
                       }}
                       placeholder="Input here..."
-                      className="w-full text-white bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-800 hover:placeholder-gray-700"
+                      className="w-full text-gray-900 dark:text-white bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-400 dark:placeholder-gray-700"
                     />
                   </td>
                   <td className="p-2">
@@ -733,7 +811,7 @@ export default function Home() {
                         setData(newData);
                       }}
                       placeholder="Input here..."
-                      className="w-full text-gray-400 bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-800 hover:placeholder-gray-700"
+                      className="w-full text-gray-600 dark:text-gray-400 bg-transparent cursor-auto focus:ring-0 focus:outline-none placeholder-gray-400 dark:placeholder-gray-700"
                     />
                   </td>
                   <td className="p-2">
