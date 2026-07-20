@@ -33,7 +33,7 @@ function json(body, status = 200) {
 }
 
 async function handleTranslation({ texts, from, to }) {
-  if (!texts.length || texts.some((t) => typeof t !== "string" || !t)) {
+  if (!texts.length || texts.some((t) => typeof t !== "string")) {
     return json({ error: "Text parameter is required" }, 400);
   }
 
@@ -41,38 +41,49 @@ async function handleTranslation({ texts, from, to }) {
     const sourceLang = from === "auto" ? "auto" : toGoogleLang(from);
     const targetLang = toGoogleLang(to);
 
-    // One request per batch: repeated q params in a form-encoded POST body,
-    // so large catalogs don't hit URL length limits.
-    const body = new URLSearchParams();
-    for (const text of texts) {
-      body.append("q", text);
-    }
+    // Empty strings have nothing to translate and Google rejects empty q
+    // params, so send only the non-empty items and echo the rest back.
+    const nonEmptyIndices = texts
+      .map((t, i) => (t ? i : -1))
+      .filter((i) => i !== -1);
 
-    const response = await fetch(
-      `https://translate.googleapis.com/translate_a/t?client=gtx&sl=${sourceLang}&tl=${targetLang}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
+    let translated = [];
+    if (nonEmptyIndices.length) {
+      // One request per batch: repeated q params in a form-encoded POST body,
+      // so large catalogs don't hit URL length limits.
+      const body = new URLSearchParams();
+      for (const i of nonEmptyIndices) {
+        body.append("q", texts[i]);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Translation API returned ${response.status}`);
+      const response = await fetch(
+        `https://translate.googleapis.com/translate_a/t?client=gtx&sl=${sourceLang}&tl=${targetLang}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Translation API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      translated = Array.isArray(data) ? data : [];
+      if (translated.length !== nonEmptyIndices.length) {
+        throw new Error("Translation API returned an unexpected response");
+      }
     }
-
-    const data = await response.json();
 
     // With sl=auto each item is [translation, detectedLang]; with an explicit
     // source language each item is a plain string.
-    const outputs = (Array.isArray(data) ? data : []).map((item, i) => {
+    const outputs = texts.slice();
+    nonEmptyIndices.forEach((textIndex, i) => {
+      const item = translated[i];
       const value = Array.isArray(item) ? item[0] : item;
-      return typeof value === "string" && value ? value : texts[i];
+      if (typeof value === "string" && value) outputs[textIndex] = value;
     });
-
-    if (outputs.length !== texts.length) {
-      throw new Error("Translation API returned an unexpected response");
-    }
 
     return json({
       inputs: texts,

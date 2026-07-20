@@ -1156,8 +1156,16 @@ export default function Home() {
       const results = [];
       const batchSize = 50;
 
-      for (let i = 0; i < keys.length; i += batchSize) {
-        const batchKeys = keys.slice(i, i + batchSize);
+      // A string with an empty source value falls back to its key; entries
+      // where both are empty have nothing to translate, so drop them.
+      const translatable = keys.filter(
+        (key) =>
+          readLocalization(data.strings[key].localizations?.[sourceLanguage])
+            .value || key
+      );
+
+      for (let i = 0; i < translatable.length; i += batchSize) {
+        const batchKeys = translatable.slice(i, i + batchSize);
         const sourceTexts = batchKeys.map(
           (key) =>
             readLocalization(data.strings[key].localizations?.[sourceLanguage])
