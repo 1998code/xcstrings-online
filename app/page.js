@@ -4,6 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import pkg from "../package.json";
 
 const STORAGE_KEY = "xcstrings-online-data";
+const COLOR_VISION_KEY = "colorVision";
+
+// Color-vision modes for the appearance menu. The done/new hexes are only the
+// menu swatch previews — the real palette lives in globals.css as
+// [data-color-vision] CSS variable overrides.
+const VISION_MODES = [
+  { id: "default", name: "Default", desc: "Standard colors", done: "#059669", new: "#d97706" },
+  { id: "protanopia", name: "Protanopia", desc: "Red-blind friendly", done: "#0072b2", new: "#d97706" },
+  { id: "deuteranopia", name: "Deuteranopia", desc: "Green-blind friendly", done: "#0072b2", new: "#d97706" },
+  { id: "tritanopia", name: "Tritanopia", desc: "Blue-blind friendly", done: "#059669", new: "#cc3311" },
+  { id: "grayscale", name: "Grayscale", desc: "Monochrome", done: "#1f2937", new: "#6b7280" },
+];
 
 // Display just major.minor (e.g. "2.0") from the package's semver version.
 const APP_VERSION = pkg.version.split(".").slice(0, 2).join(".");
@@ -67,6 +79,49 @@ function setLocalizationValue(loc, value) {
   }
   base.stringUnit = { ...(base.stringUnit || { state: "new" }), value };
   return base;
+}
+
+// Small donut chart with the completion percentage in the middle, shown per
+// language in the sidebar.
+function LangDonut({ pct, active }) {
+  const r = 14;
+  const circumference = 2 * Math.PI * r;
+  return (
+    <svg viewBox="0 0 36 36" className="h-8 w-8 shrink-0" aria-hidden="true">
+      <circle
+        cx="18"
+        cy="18"
+        r={r}
+        fill="none"
+        strokeWidth="4"
+        className={active ? "stroke-white/30" : "stroke-black/[0.08] dark:stroke-white/10"}
+      />
+      <circle
+        cx="18"
+        cy="18"
+        r={r}
+        fill="none"
+        strokeWidth="4"
+        strokeLinecap="round"
+        transform="rotate(-90 18 18)"
+        style={active ? { stroke: "#ffffff" } : undefined}
+        className={active ? "" : "progress-ring-done"}
+        strokeDasharray={circumference}
+        strokeDashoffset={(circumference * (100 - pct)) / 100}
+      />
+      <text
+        x="18"
+        y="18"
+        dominantBaseline="central"
+        textAnchor="middle"
+        className={`text-[9px] font-semibold ${
+          active ? "fill-white" : "fill-gray-600 dark:fill-gray-300"
+        }`}
+      >
+        {pct}
+      </text>
+    </svg>
+  );
 }
 
 export default function Home() {
@@ -244,6 +299,21 @@ export default function Home() {
       name: "Ukrainian",
     }
   ];
+
+  // Human-readable label for a locale code. The curated list wins; regional
+  // variants not in it (e.g. "ar-SA", "de-DE") resolve via Intl.DisplayNames,
+  // and anything unresolvable falls back to the raw code.
+  function langName(code) {
+    const curated = languages.find((l) => l.code === code)?.name;
+    if (curated) return curated;
+    try {
+      const name = new Intl.DisplayNames(["en"], { type: "language" }).of(code);
+      if (name && name !== code) return name;
+    } catch {
+      // Malformed locale code — fall through to the raw code.
+    }
+    return code;
+  }
 
   const sampleData = {
     "sourceLanguage": "en",
@@ -547,23 +617,50 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isDesktop, setIsDesktop] = useState(false);
   const [sortConfig, setSortConfig] = useState({ column: null, direction: "asc" });
+  const [colWidths, setColWidths] = useState({
+    key: 220,
+    value: 340,
+    comment: 300,
+    state: 130,
+  });
   const [langSearch, setLangSearch] = useState("");
   const [addLangQuery, setAddLangQuery] = useState("");
   const [addLangOpen, setAddLangOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [tableSearch, setTableSearch] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileDismissed, setMobileDismissed] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
+  const [colorVision, setColorVision] = useState("default");
+  const [visionMenuOpen, setVisionMenuOpen] = useState(false);
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
+  const historySnapshotRef = useRef(null);
   const hasLoadedFromStorageRef = useRef(false);
+  const guideCloseRef = useRef(null);
 
   const SIDEBAR_MIN = 180;
   const SIDEBAR_MAX = 480;
 
-  // Sync the toggle with the theme the inline <head> script already applied.
+  // Sync the toggle with the theme (and color-vision mode) the inline <head>
+  // script already applied.
   useEffect(() => {
     setTheme(
       document.documentElement.classList.contains("dark") ? "dark" : "light"
     );
+    setColorVision(
+      document.documentElement.getAttribute("data-color-vision") || "default"
+    );
   }, []);
+
+  // Close the color-vision menu on Escape.
+  useEffect(() => {
+    if (!visionMenuOpen) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setVisionMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visionMenuOpen]);
 
   // Track whether the two-column resizable layout is active (lg breakpoint).
   useEffect(() => {
@@ -574,15 +671,51 @@ export default function Home() {
     return () => mq.removeEventListener("change", update);
   }, []);
 
-  // Close the user-guide dialog on Escape.
+  // This editor targets desktop browsers; flag small screens so we can
+  // suggest switching to a Mac/Windows browser.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // Close the user-guide dialog on Escape, and move focus into it on open so
+  // screen readers announce the dialog.
   useEffect(() => {
     if (!guideOpen) return;
+    guideCloseRef.current?.focus();
     const onKey = (e) => {
       if (e.key === "Escape") setGuideOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [guideOpen]);
+
+  // Drag a table column border to resize that column.
+  function startColResize(e, colKey) {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = colWidths[colKey];
+
+    const onMove = (ev) => {
+      const next = Math.max(80, startWidth + (ev.clientX - startX));
+      setColWidths((prev) => ({ ...prev, [colKey]: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+  }
 
   // Drag the divider between the Languages column and the table to resize.
   function startResize(e) {
@@ -623,13 +756,36 @@ export default function Home() {
     setTheme(next);
   }
 
+  function applyColorVision(mode) {
+    if (mode === "default") {
+      document.documentElement.removeAttribute("data-color-vision");
+    } else {
+      document.documentElement.setAttribute("data-color-vision", mode);
+    }
+    try {
+      if (mode === "default") {
+        localStorage.removeItem(COLOR_VISION_KEY);
+      } else {
+        localStorage.setItem(COLOR_VISION_KEY, mode);
+      }
+    } catch (e) {
+      console.error("Failed to persist color-vision preference:", e);
+    }
+    setColorVision(mode);
+    setVisionMenuOpen(false);
+  }
+
   // Load previously auto-saved data from local storage on mount.
   // Kept in useEffect (not useState initializer) to avoid SSR hydration mismatch.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        setData(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Restoring a session isn't a user edit — make the restored catalog
+        // the history baseline so it can't be undone.
+        historySnapshotRef.current = parsed;
+        setData(parsed);
       }
     } catch (e) {
       console.error("Failed to load saved data from local storage:", e);
@@ -654,6 +810,44 @@ export default function Home() {
       clearTimeout(timeoutId);
     };
   }, [data]);
+
+  // Record undo history whenever the catalog changes. Debounced so a burst of
+  // keystrokes in one cell collapses into a single undo step; capped at 50
+  // steps. Undo/redo and session restore point historySnapshotRef at the data
+  // they set, so their own changes aren't re-recorded (the ref-identity check
+  // below also makes this safe under StrictMode's double-run of effects).
+  useEffect(() => {
+    if (historySnapshotRef.current === null) {
+      historySnapshotRef.current = data;
+      return;
+    }
+    if (historySnapshotRef.current === data) return;
+    const prev = historySnapshotRef.current;
+    const timeoutId = setTimeout(() => {
+      setUndoStack((stack) => [...stack.slice(-49), prev]);
+      setRedoStack([]);
+      historySnapshotRef.current = data;
+    }, 400);
+    return () => clearTimeout(timeoutId);
+  }, [data]);
+
+  function undo() {
+    if (!undoStack.length) return;
+    const prev = undoStack[undoStack.length - 1];
+    historySnapshotRef.current = prev;
+    setUndoStack(undoStack.slice(0, -1));
+    setRedoStack([...redoStack, data]);
+    setData(prev);
+  }
+
+  function redo() {
+    if (!redoStack.length) return;
+    const next = redoStack[redoStack.length - 1];
+    historySnapshotRef.current = next;
+    setRedoStack(redoStack.slice(0, -1));
+    setUndoStack([...undoStack, data]);
+    setData(next);
+  }
 
   async function translateText(sourceText, sourceLanguage) {
     const res = await fetch("/api/translate", {
@@ -699,6 +893,25 @@ export default function Home() {
       }
     };
     reader.readAsText(file);
+  }
+
+  // Copy the site URL so mobile visitors can open it later on a desktop.
+  async function copyUrl() {
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (e) {
+      // Clipboard API can be unavailable (http, older browsers); fall back to
+      // a temporary input + execCommand.
+      const input = document.createElement("input");
+      input.value = url;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+    }
+    setUrlCopied(true);
+    setTimeout(() => setUrlCopied(false), 2000);
   }
 
   function importData() {
@@ -821,8 +1034,7 @@ export default function Home() {
   const card =
     "rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/70 dark:bg-white/[0.06] backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]";
 
-  const selectedLangName =
-    languages.find((l) => l.code === selectedLanguage)?.name || selectedLanguage;
+  const selectedLangName = langName(selectedLanguage);
 
   // Union of every locale that appears anywhere in the catalog, plus the
   // source language. Robust to strings that have no `localizations` at all.
@@ -839,16 +1051,35 @@ export default function Home() {
   const totalKeys = stringKeys.length;
   const completion = totalKeys ? Math.round((translatedCount / totalKeys) * 100) : 0;
 
+  // Translation completion percentage for a given locale, used by the sidebar
+  // donut charts.
+  function completionForLang(code) {
+    if (!totalKeys) return 0;
+    const done = stringKeys.reduce(
+      (n, key) =>
+        n +
+        (readLocalization(data.strings[key]?.localizations?.[code]).state ===
+        "translated"
+          ? 1
+          : 0),
+      0
+    );
+    return Math.round((done / totalKeys) * 100);
+  }
+
   // Languages that could still be added (known list minus what's present).
   const addableLanguages = languages.filter((l) => !localeCodes.includes(l.code));
 
-  // Sidebar search over the locales already in the catalog.
-  const filteredLocaleCodes = localeCodes.filter((code) => {
+  // Single search over the locales already in the catalog. If nothing
+  // matches (e.g. the user is searching for a table key), fall back to
+  // showing every language so the sidebar doesn't look empty.
+  const langMatches = localeCodes.filter((code) => {
     const q = langSearch.trim().toLowerCase();
     if (!q) return true;
-    const name = (languages.find((l) => l.code === code)?.name || code).toLowerCase();
+    const name = langName(code).toLowerCase();
     return name.includes(q) || code.toLowerCase().includes(q);
   });
+  const filteredLocaleCodes = langMatches.length ? langMatches : localeCodes;
 
   // Autosuggest matches for the "add language" combobox.
   const addLangMatches = addableLanguages.filter((l) => {
@@ -893,10 +1124,11 @@ export default function Home() {
       })
     : stringKeys;
 
-  // Filter the (sorted) rows by the table search — matches the key, the
-  // selected-language value, or the comment.
-  const visibleKeys = sortedKeys.filter((key) => {
-    const q = tableSearch.trim().toLowerCase();
+  // Filter the (sorted) rows by the single search field — matches the key,
+  // the selected-language value, or the comment. If nothing matches (e.g. the
+  // user is searching for a language), fall back to showing every row.
+  const keyMatches = sortedKeys.filter((key) => {
+    const q = langSearch.trim().toLowerCase();
     if (!q) return true;
     const view = readLocalization(
       data.strings[key]?.localizations?.[selectedLanguage]
@@ -908,6 +1140,7 @@ export default function Home() {
       comment.toLowerCase().includes(q)
     );
   });
+  const visibleKeys = keyMatches.length ? keyMatches : sortedKeys;
 
   // Add a new locale to every string so it shows up as a translatable column.
   function addLanguage(code) {
@@ -930,11 +1163,16 @@ export default function Home() {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center gap-4 px-4 pb-6 pt-2 sm:px-6 sm:pb-8 sm:pt-3"
+      className="relative flex min-h-screen flex-col items-center gap-2 px-4 pb-2 pt-2 sm:px-6 sm:pb-3 sm:pt-3 lg:h-screen lg:min-h-0 lg:overflow-hidden"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Announce long-running translation state to screen readers */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {isTranslating ? "Translating all keys…" : ""}
+      </div>
+
       {/* Liquid mesh gradient background */}
       <div className="mesh-bg" aria-hidden="true">
         <span className="mesh-blob mesh-blob-1" />
@@ -947,10 +1185,49 @@ export default function Home() {
       {isDragging && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-md pointer-events-none">
           <div className="rounded-3xl border border-dashed border-white/70 bg-white/15 px-12 py-10 text-center text-white shadow-2xl">
-            <i className="fa-solid fa-cloud-arrow-up text-5xl" />
+            <i aria-hidden="true" className="fa-solid fa-cloud-arrow-up text-5xl" />
             <p className="mt-4 text-lg font-semibold tracking-tight">
               Drop your .xcstrings file
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile: this editor is built for desktop */}
+      {isMobile && !mobileDismissed && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Best on desktop"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-6 backdrop-blur-md"
+        >
+          <div className={`${card} w-full max-w-sm p-7 text-center`}>
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <i aria-hidden="true" className="fa-solid fa-desktop text-2xl" />
+            </span>
+            <h2 className="mt-4 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
+              Best on desktop
+            </h2>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              Localizable Online is designed for larger screens. Please open it
+              in a Mac or Windows browser for the full editing experience.
+            </p>
+            <button
+              onClick={copyUrl}
+              className={`${btnPrimary} mt-5 w-full justify-center`}
+            >
+              <i
+                aria-hidden="true"
+                className={`fa-solid ${urlCopied ? "fa-check" : "fa-link"}`}
+              />
+              {urlCopied ? "Copied!" : "Copy URL for desktop"}
+            </button>
+            <button
+              onClick={() => setMobileDismissed(true)}
+              className={`${btnSecondary} mt-2.5 w-full justify-center`}
+            >
+              Continue anyway
+            </button>
           </div>
         </div>
       )}
@@ -968,80 +1245,147 @@ export default function Home() {
             onClick={() => setGuideOpen(false)}
           />
           <div
-            className={`${card} relative z-10 max-h-[85vh] w-full max-w-lg overflow-y-auto p-6`}
+            className={`${card} relative z-10 max-h-[85vh] w-full max-w-xl overflow-y-auto p-6`}
           >
             <div className="flex items-center justify-between">
               <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
-                <i className="fa-solid fa-circle-question text-blue-500" />
+                <i aria-hidden="true" className="fa-solid fa-circle-question text-blue-500" />
                 User Guide
               </h2>
               <button
+                ref={guideCloseRef}
                 onClick={() => setGuideOpen(false)}
                 aria-label="Close"
                 className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-black/[0.05] hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200"
               >
-                <i className="fa-solid fa-xmark" />
+                <i aria-hidden="true" className="fa-solid fa-xmark" />
               </button>
             </div>
-            <ul className="mt-4 flex flex-col gap-4">
-              {[
-                {
-                  icon: "fa-file-arrow-up",
-                  title: "Import a catalog",
-                  body: "Click Upload or drag a .xcstrings file anywhere onto the page.",
-                },
-                {
-                  icon: "fa-pen-to-square",
-                  title: "Edit inline",
-                  body: "Click any translation or comment cell and type. Changes autosave to your browser.",
-                },
-                {
-                  icon: "fa-language",
-                  title: "Languages",
-                  body: "Switch languages in the sidebar, search them, or add a new one from the autosuggest box.",
-                },
-                {
-                  icon: "fa-wand-magic-sparkles",
-                  title: "Translate all",
-                  body: "Machine-translate every key into the selected language with one click.",
-                },
-                {
-                  icon: "fa-magnifying-glass",
-                  title: "Search & sort",
-                  body: "Search the table by key, translation or comment, and click any column header to sort.",
-                },
-                {
-                  icon: "fa-download",
-                  title: "Export",
-                  body: "Download your edits back out as a Localizable.xcstrings file.",
-                },
-              ].map((step) => (
-                <li key={step.title} className="flex gap-3">
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                    <i className={`fa-solid ${step.icon} text-sm`} />
-                  </span>
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {step.title}
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {step.body}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {[
+              {
+                heading: "Get started",
+                items: [
+                  {
+                    icon: "fa-file-arrow-up",
+                    title: "Import a catalog",
+                    body: "Click Upload or drag a .xcstrings file anywhere onto the page.",
+                  },
+                  {
+                    icon: "fa-download",
+                    title: "Export",
+                    body: "Download your edits as Localizable.xcstrings, ready to drop back into your Xcode project.",
+                  },
+                  {
+                    icon: "fa-arrow-rotate-left",
+                    title: "Start over",
+                    body: "Reset clears your saved edits and reloads the built-in sample catalog.",
+                  },
+                ],
+              },
+              {
+                heading: "Editing",
+                items: [
+                  {
+                    icon: "fa-pen-to-square",
+                    title: "Edit inline",
+                    body: "Click any translation or comment cell and type. Changes autosave to your browser.",
+                  },
+                  {
+                    icon: "fa-rotate-left",
+                    title: "Undo & redo",
+                    body: "Step backwards or forwards through your edits with the arrow buttons in the toolbar.",
+                  },
+                  {
+                    icon: "fa-list-ol",
+                    title: "Plurals & variations",
+                    body: "Keys with plural or device variations show their “other” text — editing updates that variation and leaves the rest untouched.",
+                  },
+                ],
+              },
+              {
+                heading: "Languages & translation",
+                items: [
+                  {
+                    icon: "fa-language",
+                    title: "Languages",
+                    body: "Switch languages in the sidebar, search them, or add a new one from the autosuggest box.",
+                  },
+                  {
+                    icon: "fa-wand-magic-sparkles",
+                    title: "Translate all",
+                    body: "Machine-translate every key into the selected language in one click. Existing translations are overwritten, so export a copy first if you're unsure.",
+                  },
+                  {
+                    icon: "fa-chart-simple",
+                    title: "Track progress",
+                    body: "The score cards above the table show live counts for keys, languages, translated strings and completion.",
+                  },
+                ],
+              },
+              {
+                heading: "Workspace",
+                items: [
+                  {
+                    icon: "fa-magnifying-glass",
+                    title: "Search & sort",
+                    body: "Search by key, translation or comment, and click a column header to sort — click again to reverse the order.",
+                  },
+                  {
+                    icon: "fa-left-right",
+                    title: "Make room",
+                    body: "Drag column edges or the sidebar edge to resize them, or collapse the sidebar entirely.",
+                  },
+                  {
+                    icon: "fa-universal-access",
+                    title: "Appearance",
+                    body: "Switch light or dark mode from the toolbar, or pick a color-blind-friendly palette from the accessibility menu.",
+                  },
+                ],
+              },
+            ].map((section) => (
+              <section key={section.heading} className="mt-5">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                  {section.heading}
+                </h3>
+                <ul className="mt-2.5 flex flex-col gap-3.5">
+                  {section.items.map((step) => (
+                    <li key={step.title} className="flex gap-3">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                        <i aria-hidden="true" className={`fa-solid ${step.icon} text-sm`} />
+                      </span>
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {step.title}
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          {step.body}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <p className="mt-6 rounded-xl bg-black/[0.04] px-3.5 py-2.5 text-xs leading-relaxed text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+              <i aria-hidden="true" className="fa-solid fa-lightbulb mr-1.5 text-amber-500" />
+              Your catalog stays in this browser — only Translate sends text to
+              the translation service. Press{" "}
+              <kbd className="rounded-md border border-black/10 bg-white/80 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-gray-600 dark:border-white/10 dark:bg-white/10 dark:text-gray-300">
+                Esc
+              </kbd>{" "}
+              to close this guide.
+            </p>
           </div>
         </div>
       )}
 
       {/* Toolbar */}
       <header
-        className={`${card} sticky top-2 z-30 flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3`}
+        className={`${card} sticky top-2 z-30 flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 lg:static`}
       >
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-1">
-          <i className="fa-brands fa-apple text-xl text-gray-900 dark:text-white" />
+          <i aria-hidden="true" className="fa-brands fa-apple text-xl text-gray-900 dark:text-white" />
           <span className="text-[15px] tracking-tight">
             <span className="font-semibold">Localizable</span>{" "}
             <span className="text-gray-500 dark:text-gray-400">Online</span>
@@ -1054,33 +1398,71 @@ export default function Home() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <button
+            className={iconBtn}
+            onClick={undo}
+            disabled={!undoStack.length}
+            title="Undo"
+            aria-label="Undo"
+          >
+            <i aria-hidden="true" className="fa-solid fa-rotate-left" />
+          </button>
+
+          <button
+            className={iconBtn}
+            onClick={redo}
+            disabled={!redoStack.length}
+            title="Redo"
+            aria-label="Redo"
+          >
+            <i aria-hidden="true" className="fa-solid fa-rotate-right" />
+          </button>
+
+          <div className="mx-0.5 h-6 w-px bg-black/10 dark:bg-white/10" />
+
+          <button
             className={btnPrimary}
             onClick={translateAll}
             disabled={isTranslating}
             title={`Translate all keys into ${selectedLangName}`}
+            aria-label={`Translate all keys into ${selectedLangName}`}
           >
             {isTranslating ? (
-              <i className="fa-solid fa-circle-notch fa-spin" />
+              <i aria-hidden="true" className="fa-solid fa-circle-notch fa-spin" />
             ) : (
-              <i className="fa-solid fa-wand-magic-sparkles" />
+              <i aria-hidden="true" className="fa-solid fa-wand-magic-sparkles" />
             )}
             <span className="hidden sm:inline">
               {isTranslating ? "Translating…" : "Translate"}
             </span>
           </button>
 
-          <button className={btnSecondary} onClick={importData} title="Upload a .xcstrings file">
-            <i className="fa-solid fa-arrow-up-from-bracket" />
+          <button
+            className={btnSecondary}
+            onClick={importData}
+            title="Upload a .xcstrings file"
+            aria-label="Upload a .xcstrings file"
+          >
+            <i aria-hidden="true" className="fa-solid fa-arrow-up-from-bracket" />
             <span className="hidden md:inline">Upload</span>
           </button>
 
-          <button className={btnSecondary} onClick={exportData} title="Download .xcstrings file">
-            <i className="fa-solid fa-download" />
+          <button
+            className={btnSecondary}
+            onClick={exportData}
+            title="Download .xcstrings file"
+            aria-label="Download .xcstrings file"
+          >
+            <i aria-hidden="true" className="fa-solid fa-download" />
             <span className="hidden md:inline">Download</span>
           </button>
 
-          <button className={btnSecondary} onClick={resetData} title="Reset to sample data">
-            <i className="fa-solid fa-arrow-rotate-left" />
+          <button
+            className={btnSecondary}
+            onClick={resetData}
+            title="Reset to sample data"
+            aria-label="Reset to sample data"
+          >
+            <i aria-hidden="true" className="fa-solid fa-arrow-rotate-left" />
             <span className="hidden md:inline">Reset</span>
           </button>
 
@@ -1088,8 +1470,9 @@ export default function Home() {
             className={btnSecondary}
             onClick={() => setGuideOpen(true)}
             title="User guide"
+            aria-label="User guide"
           >
-            <i className="fa-solid fa-circle-question" />
+            <i aria-hidden="true" className="fa-solid fa-circle-question" />
             <span className="hidden md:inline">Guide</span>
           </button>
 
@@ -1104,14 +1487,15 @@ export default function Home() {
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
             className="relative inline-flex h-9 w-16 shrink-0 items-center rounded-full border border-black/[0.06] bg-white/70 shadow-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:border-white/10 dark:bg-white/10"
           >
-            <i className="fa-solid fa-sun pointer-events-none absolute left-2.5 text-[11px] text-amber-500/80" />
-            <i className="fa-solid fa-moon pointer-events-none absolute right-2.5 text-[11px] text-indigo-400/80" />
+            <i aria-hidden="true" className="fa-solid fa-sun pointer-events-none absolute left-2.5 text-[11px] text-amber-500/80" />
+            <i aria-hidden="true" className="fa-solid fa-moon pointer-events-none absolute right-2.5 text-[11px] text-indigo-400/80" />
             <span
               className={`flex h-7 w-7 transform items-center justify-center rounded-full bg-white shadow-md transition-transform duration-200 dark:bg-gray-100 ${
                 theme === "dark" ? "translate-x-8" : "translate-x-1"
               }`}
             >
               <i
+                aria-hidden="true"
                 className={`fa-solid text-[11px] ${
                   theme === "dark"
                     ? "fa-moon text-indigo-500"
@@ -1121,6 +1505,84 @@ export default function Home() {
             </span>
           </button>
 
+          {/* Color-vision (color blind) options */}
+          <div className="relative">
+            <button
+              onClick={() => setVisionMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={visionMenuOpen}
+              aria-label="Color vision options"
+              title="Color vision options"
+              className={`${iconBtn} ${
+                colorVision !== "default" ? "text-blue-600 dark:text-blue-400" : ""
+              }`}
+            >
+              <i aria-hidden="true" className="fa-solid fa-universal-access text-base" />
+            </button>
+            {visionMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setVisionMenuOpen(false)}
+                />
+                <div
+                  role="menu"
+                  aria-label="Color vision options"
+                  onKeyDown={(e) => {
+                    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+                    e.preventDefault();
+                    const items = [
+                      ...e.currentTarget.querySelectorAll('[role="menuitemradio"]'),
+                    ];
+                    const current = items.indexOf(document.activeElement);
+                    const next =
+                      e.key === "ArrowDown"
+                        ? (current + 1) % items.length
+                        : (current - 1 + items.length) % items.length;
+                    items[next]?.focus();
+                  }}
+                  className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-black/[0.08] bg-white/95 p-1 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/95"
+                >
+                  <div className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    Color vision
+                  </div>
+                  {VISION_MODES.map((mode) => {
+                    const isActive = colorVision === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        role="menuitemradio"
+                        aria-checked={isActive}
+                        onClick={() => applyColorVision(mode.id)}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-black/[0.05] dark:text-gray-200 dark:hover:bg-white/10"
+                      >
+                        {/* Done / New swatch preview — one circle, half each color */}
+                        <span
+                          className="h-4 w-4 shrink-0 rounded-full"
+                          aria-hidden="true"
+                          style={{
+                            background: `linear-gradient(120deg, ${mode.done} 50%, ${mode.new} 50%)`,
+                          }}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">
+                            {mode.name}
+                          </span>
+                          <span className="block truncate text-xs text-gray-400 dark:text-gray-500">
+                            {mode.desc}
+                          </span>
+                        </span>
+                        {isActive && (
+                          <i aria-hidden="true" className="fa-solid fa-check shrink-0 text-xs text-blue-500" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
+
           <a
             href="https://github.com/1998code/xcstrings-online"
             target="_blank"
@@ -1129,7 +1591,7 @@ export default function Home() {
             aria-label="Open source on GitHub"
             title="Open source on GitHub"
           >
-            <i className="fa-brands fa-github" />
+            <i aria-hidden="true" className="fa-brands fa-github" />
             <span className="hidden md:inline">Open Source</span>
           </a>
         </div>
@@ -1139,51 +1601,55 @@ export default function Home() {
       <div
         className={`${card} grid w-full max-w-7xl grid-cols-2 divide-x divide-y divide-black/[0.06] overflow-hidden dark:divide-white/10 lg:grid-cols-4 lg:divide-y-0`}
       >
-        <div className="p-5">
+        <div className="px-5 py-3">
           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-            <i className="fa-solid fa-key text-[11px]" />
+            <i aria-hidden="true" className="fa-solid fa-key text-[11px]" />
             <span className="text-[13px] font-medium">Keys</span>
           </div>
-          <div className="mt-2 text-[2rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
+          <div className="mt-1 text-2xl font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
             {totalKeys}
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="px-5 py-3">
           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-            <i className="fa-solid fa-language text-[11px]" />
+            <i aria-hidden="true" className="fa-solid fa-language text-[11px]" />
             <span className="text-[13px] font-medium">Languages</span>
           </div>
-          <div className="mt-2 text-[2rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
+          <div className="mt-1 text-2xl font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
             {localeCodes.length}
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="px-5 py-3">
           <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-            <i className="fa-solid fa-circle-check text-[11px]" />
+            <i aria-hidden="true" className="fa-solid fa-circle-check text-[11px]" />
             <span className="truncate text-[13px] font-medium">
               Translated · {selectedLangName}
             </span>
           </div>
-          <div className="mt-2 text-[2rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
+          <div className="mt-1 text-2xl font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
             {translatedCount}
-            <span className="text-lg font-medium text-gray-400"> / {totalKeys}</span>
+            <span className="text-base font-medium text-gray-400"> / {totalKeys}</span>
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-5">
+        <div className="flex items-center justify-between px-5 py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
-              <i className="fa-solid fa-chart-simple text-[11px]" />
+              <i aria-hidden="true" className="fa-solid fa-chart-simple text-[11px]" />
               <span className="text-[13px] font-medium">Complete</span>
             </div>
-            <div className="mt-2 text-[2rem] font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
+            <div className="mt-1 text-2xl font-semibold leading-none tracking-tight tabular-nums text-gray-900 dark:text-white">
               {completion}
-              <span className="text-lg font-medium text-gray-400">%</span>
+              <span className="text-base font-medium text-gray-400">%</span>
             </div>
           </div>
-          <svg viewBox="0 0 44 44" className="h-12 w-12 -rotate-90 shrink-0">
+          <svg
+            viewBox="0 0 44 44"
+            className="h-10 w-10 -rotate-90 shrink-0"
+            aria-hidden="true"
+          >
             <circle
               cx="22"
               cy="22"
@@ -1199,7 +1665,7 @@ export default function Home() {
               fill="none"
               strokeWidth="4"
               strokeLinecap="round"
-              className="stroke-emerald-500 transition-all duration-700"
+              className="progress-ring-done transition-all duration-700"
               strokeDasharray={2 * Math.PI * 18}
               strokeDashoffset={(2 * Math.PI * 18 * (100 - completion)) / 100}
             />
@@ -1208,56 +1674,30 @@ export default function Home() {
       </div>
 
       {/* Content */}
-      <div className="flex w-full max-w-7xl flex-col items-start gap-4 lg:flex-row lg:gap-1">
-        {/* Collapsed: slim button to reveal the Languages panel */}
-        {sidebarCollapsed && (
-          <button
-            onClick={() => setSidebarCollapsed(false)}
-            title="Show languages"
-            aria-label="Show languages"
-            className={`${card} flex w-full shrink-0 items-center justify-center gap-2 p-2.5 lg:sticky lg:top-24 lg:w-auto`}
-          >
-            <i className="fa-solid fa-angles-right text-gray-500 dark:text-gray-300" />
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-300 lg:hidden">
-              Languages
-            </span>
-          </button>
-        )}
-
+      <div className="flex w-full max-w-7xl flex-col items-start gap-2 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch lg:gap-0">
         {/* Languages List */}
-        {!sidebarCollapsed && (
         <aside
           style={isDesktop ? { width: sidebarWidth } : undefined}
-          className={`${card} w-full shrink-0 p-3 lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100vh-13rem)] lg:flex-col`}
+          className={`${card} w-full shrink-0 p-3 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:rounded-r-none lg:border-r-0`}
         >
           <div className="flex items-center justify-between px-2 py-1.5">
             <h2 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-white">
               Languages
             </h2>
-            <div className="flex items-center gap-1.5">
-              <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400">
-                {localeCodes.length}
-              </span>
-              <button
-                onClick={() => setSidebarCollapsed(true)}
-                title="Collapse panel"
-                aria-label="Collapse languages panel"
-                className="flex h-6 w-6 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-black/[0.05] hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-200"
-              >
-                <i className="fa-solid fa-angles-left text-xs" />
-              </button>
-            </div>
+            <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400">
+              {localeCodes.length}
+            </span>
           </div>
 
-          {/* Search existing languages */}
+          {/* Single search — filters both the language list and the table */}
           <div className="relative mt-1">
-            <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
+            <i aria-hidden="true" className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
             <input
               type="text"
               value={langSearch}
               onChange={(e) => setLangSearch(e.target.value)}
-              placeholder="Search languages…"
-              aria-label="Search languages"
+              placeholder="Search languages & keys…"
+              aria-label="Search languages and strings"
               className="w-full rounded-lg border border-black/[0.06] bg-white/60 py-1.5 pl-8 pr-8 text-sm text-gray-700 shadow-sm transition-colors focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:border-white/10 dark:bg-white/10 dark:text-gray-100 dark:placeholder-gray-500"
             />
             {langSearch && (
@@ -1266,7 +1706,7 @@ export default function Home() {
                 aria-label="Clear search"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               >
-                <i className="fa-solid fa-circle-xmark" />
+                <i aria-hidden="true" className="fa-solid fa-circle-xmark" />
               </button>
             )}
           </div>
@@ -1283,14 +1723,16 @@ export default function Home() {
                 <li key={lang}>
                   <button
                     onClick={() => setSelectedLanguage(lang)}
-                    className={`flex w-full items-center justify-between gap-4 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                    aria-current={isActive ? "true" : undefined}
+                    aria-label={`${langName(lang)} (${lang}), ${completionForLang(lang)}% translated`}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
                       isActive
                         ? "bg-blue-600 text-white shadow-sm"
                         : "text-gray-700 hover:bg-black/[0.05] dark:text-gray-200 dark:hover:bg-white/10"
                     }`}
                   >
-                    <span className="truncate font-medium">
-                      {languages.find((l) => l.code === lang)?.name || lang}
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {langName(lang)}
                     </span>
                     <span
                       className={`shrink-0 text-xs ${
@@ -1299,6 +1741,7 @@ export default function Home() {
                     >
                       {lang}
                     </span>
+                    <LangDonut pct={completionForLang(lang)} active={isActive} />
                   </button>
                 </li>
               );
@@ -1308,7 +1751,7 @@ export default function Home() {
           {/* Add language — searchable autosuggest */}
           <div className="relative mt-2 border-t border-black/[0.06] pt-2 dark:border-white/10">
             <div className="relative">
-              <i className="fa-solid fa-plus pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
+              <i aria-hidden="true" className="fa-solid fa-plus pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
               <input
                 type="text"
                 value={addLangQuery}
@@ -1325,19 +1768,28 @@ export default function Home() {
                 aria-label="Add a language"
                 role="combobox"
                 aria-expanded={addLangOpen}
+                aria-controls="add-language-listbox"
+                aria-autocomplete="list"
                 className="w-full rounded-lg border border-black/[0.06] bg-white/60 py-2 pl-8 pr-3 text-sm text-gray-700 shadow-sm transition-colors focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/10 dark:text-gray-100 dark:placeholder-gray-500"
               />
             </div>
             {addLangOpen && addableLanguages.length > 0 && (
-              <ul className="absolute bottom-full left-0 right-0 z-20 mb-1.5 max-h-60 overflow-y-auto rounded-xl border border-black/[0.08] bg-white/95 p-1 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/95">
+              <ul
+                id="add-language-listbox"
+                role="listbox"
+                aria-label="Languages to add"
+                className="absolute bottom-full left-0 right-0 z-20 mb-1.5 max-h-60 overflow-y-auto rounded-xl border border-black/[0.08] bg-white/95 p-1 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/95"
+              >
                 {addLangMatches.length === 0 ? (
                   <li className="px-2.5 py-2 text-center text-xs text-gray-400">
                     No match
                   </li>
                 ) : (
                   addLangMatches.map((l) => (
-                    <li key={l.code}>
+                    <li key={l.code} role="presentation">
                       <button
+                        role="option"
+                        aria-selected={false}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           addLanguage(l.code);
@@ -1358,117 +1810,166 @@ export default function Home() {
             )}
           </div>
         </aside>
-        )}
 
         {/* Resize handle between the Languages column and the table */}
-        {!sidebarCollapsed && isDesktop && (
+        {isDesktop && (
           <div
             onPointerDown={startResize}
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize languages panel"
             title="Drag to resize"
-            className="group hidden shrink-0 cursor-col-resize items-center justify-center self-stretch px-1 lg:flex"
+            className="group z-10 -mx-1.5 hidden w-3 shrink-0 cursor-col-resize items-stretch justify-center self-stretch lg:flex"
           >
-            <div className="h-16 w-1 rounded-full bg-black/10 transition-colors group-hover:bg-blue-500/70 dark:bg-white/15 dark:group-hover:bg-blue-400/70" />
+            <div className="w-px bg-black/10 transition-colors group-hover:w-0.5 group-hover:bg-blue-500/70 dark:bg-white/10 dark:group-hover:bg-blue-400/70" />
           </div>
         )}
 
         {/* Table with inline edit feature */}
-        <section className={`${card} w-full overflow-hidden lg:min-w-0 lg:flex-1`}>
-          {/* Search across keys, translations and comments */}
-          <div className="flex items-center gap-3 border-b border-black/[0.06] px-3 py-2 dark:border-white/10">
-            <div className="relative flex-1">
-              <i className="fa-solid fa-magnifying-glass pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" />
-              <input
-                type="text"
-                value={tableSearch}
-                onChange={(e) => setTableSearch(e.target.value)}
-                placeholder="Search keys, translations, comments…"
-                aria-label="Search strings"
-                className="w-full rounded-lg border border-black/[0.06] bg-white/60 py-1.5 pl-8 pr-8 text-sm text-gray-700 shadow-sm transition-colors focus:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:border-white/10 dark:bg-white/10 dark:text-gray-100 dark:placeholder-gray-500"
-              />
-              {tableSearch && (
-                <button
-                  onClick={() => setTableSearch("")}
-                  aria-label="Clear search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+        <section
+          className={`${card} w-full overflow-hidden lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 lg:flex-col lg:rounded-l-none lg:border-l-0`}
+        >
+          {/* One horizontal scroller wraps the fixed header and the scrolling
+              body so they stay aligned when columns are dragged wider. */}
+          <div className="flex flex-col overflow-x-auto overflow-y-hidden lg:min-h-0 lg:flex-1">
+            <div
+              className="flex flex-col lg:h-full lg:min-h-0"
+              style={{
+                width:
+                  colWidths.key +
+                  colWidths.value +
+                  colWidths.comment +
+                  colWidths.state,
+                minWidth: "100%",
+              }}
+            >
+              {/* Fixed header — unaffected by vertical scrolling. Reserves the
+                  scrollbar gutter so its columns line up with the body. */}
+              <div className="shrink-0 overflow-y-scroll">
+                <table
+                  aria-label="Column headers and sorting"
+                  className="w-full table-fixed border-collapse text-sm"
                 >
-                  <i className="fa-solid fa-circle-xmark" />
-                </button>
-              )}
-            </div>
-            <span className="shrink-0 text-xs tabular-nums text-gray-400">
-              {visibleKeys.length} / {totalKeys}
-            </span>
-          </div>
-          <div className="max-h-[calc(100vh-14rem)] overflow-auto">
-            <table className="w-full border-collapse text-sm">
-              <thead>
-                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {[
-                    { col: "key", icon: "fa-key", label: "Key", cls: "" },
-                    {
-                      col: "value",
-                      icon: "fa-language",
-                      label: (
-                        <>
-                          {selectedLangName}
-                          <span className="font-normal normal-case text-gray-400">
-                            {selectedLanguage}
-                          </span>
-                        </>
-                      ),
-                      cls: "min-w-[22vw]",
-                    },
-                    {
-                      col: "comment",
-                      icon: "fa-comment-dots",
-                      label: "Comment",
-                      cls: "min-w-[18vw]",
-                    },
-                    { col: "state", icon: "fa-circle-check", label: "State", cls: "" },
-                  ].map(({ col, icon, label, cls }) => {
-                    const active = sortConfig.column === col;
-                    return (
-                      <th
-                        key={col}
-                        className={`sticky top-0 z-20 border-b border-black/[0.07] bg-white/85 backdrop-blur-md dark:border-white/10 dark:bg-[#0e1116]/85 p-0 ${cls}`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => requestSort(col)}
-                          className="flex w-full items-center gap-2 whitespace-nowrap px-4 py-3 text-left font-semibold transition-colors hover:text-gray-700 dark:hover:text-gray-200"
-                        >
-                          <i className={`fa-solid ${icon} text-gray-400`} />
-                          {label}
-                          <i
-                            className={`fa-solid ml-auto text-[10px] ${
+                  <colgroup>
+                    <col style={{ width: colWidths.key }} />
+                    <col style={{ width: colWidths.value }} />
+                    <col style={{ width: colWidths.comment }} />
+                    <col style={{ width: colWidths.state }} />
+                  </colgroup>
+                  <thead>
+                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      {[
+                        { col: "key", icon: "fa-key", label: "Key", name: "key" },
+                        {
+                          col: "value",
+                          icon: "fa-language",
+                          name: `${selectedLangName} translation`,
+                          label: (
+                            <>
+                              {selectedLangName}
+                              <span className="ml-1.5 font-normal normal-case text-gray-400">
+                                {selectedLanguage}
+                              </span>
+                            </>
+                          ),
+                        },
+                        {
+                          col: "comment",
+                          icon: "fa-comment-dots",
+                          label: "Comment",
+                          name: "comment",
+                        },
+                        {
+                          col: "state",
+                          icon: "fa-circle-check",
+                          label: "State",
+                          name: "state",
+                        },
+                      ].map(({ col, icon, label, name }, index, cols) => {
+                        const active = sortConfig.column === col;
+                        return (
+                          <th
+                            key={col}
+                            aria-sort={
                               active
                                 ? sortConfig.direction === "asc"
-                                  ? "fa-sort-up"
-                                  : "fa-sort-down"
-                                : "fa-sort"
-                            } ${
-                              active
-                                ? "text-blue-500"
-                                : "text-gray-300 dark:text-gray-600"
-                            }`}
-                          />
-                        </button>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.08]">
+                                  ? "ascending"
+                                  : "descending"
+                                : undefined
+                            }
+                            className="relative border-b border-black/[0.07] dark:border-white/10 p-0"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => requestSort(col)}
+                              aria-label={`Sort by ${name}${
+                                active
+                                  ? `, currently ${
+                                      sortConfig.direction === "asc"
+                                        ? "ascending"
+                                        : "descending"
+                                    }`
+                                  : ""
+                              }`}
+                              className="flex w-full items-center gap-2 overflow-hidden whitespace-nowrap px-4 py-3 text-left font-semibold transition-colors hover:text-gray-700 dark:hover:text-gray-200"
+                            >
+                              <i aria-hidden="true" className={`fa-solid ${icon} shrink-0 text-gray-400`} />
+                              <span className="truncate">{label}</span>
+                              <i
+                                aria-hidden="true"
+                                className={`fa-solid ml-auto shrink-0 text-[10px] ${
+                                  active
+                                    ? sortConfig.direction === "asc"
+                                      ? "fa-sort-up"
+                                      : "fa-sort-down"
+                                    : "fa-sort"
+                                } ${
+                                  active
+                                    ? "text-blue-500"
+                                    : "text-gray-300 dark:text-gray-600"
+                                }`}
+                              />
+                            </button>
+                            {/* Column resize handle (not on the last column) */}
+                            {index < cols.length - 1 && (
+                              <span
+                                onPointerDown={(e) => startColResize(e, col)}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Drag to resize column"
+                                aria-hidden="true"
+                                className="group absolute right-0 top-0 z-10 flex h-full w-2 cursor-col-resize touch-none items-center justify-center"
+                              >
+                                <span className="h-1/2 w-px bg-black/10 transition-colors group-hover:bg-blue-500/70 dark:bg-white/15 dark:group-hover:bg-blue-400/70" />
+                              </span>
+                            )}
+                          </th>
+                        );
+                      })}
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+
+              {/* Scrolling body */}
+              <div className="max-h-[60vh] overflow-y-scroll lg:max-h-none lg:min-h-0 lg:flex-1">
+                <table
+                  aria-label={`Localization strings, ${selectedLangName}`}
+                  className="w-full table-fixed border-collapse text-sm"
+                >
+                  <colgroup>
+                    <col style={{ width: colWidths.key }} />
+                    <col style={{ width: colWidths.value }} />
+                    <col style={{ width: colWidths.comment }} />
+                    <col style={{ width: colWidths.state }} />
+                  </colgroup>
+                  <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.08]">
                 {visibleKeys.length === 0 && (
                   <tr>
                     <td
                       colSpan={4}
                       className="px-4 py-10 text-center text-sm text-gray-400"
                     >
-                      No strings match “{tableSearch}”.
+                      No strings match “{langSearch}”.
                     </td>
                   </tr>
                 )}
@@ -1483,7 +1984,7 @@ export default function Home() {
                       className="transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
                     >
                       <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-white">
-                        <div className="max-w-[240px] truncate" title={key}>
+                        <div className="truncate" title={key}>
                           {key}
                         </div>
                       </td>
@@ -1509,6 +2010,7 @@ export default function Home() {
                             });
                           }}
                           placeholder="Add translation…"
+                          aria-label={`${selectedLangName} translation for “${key}”`}
                           className="w-full rounded-md bg-transparent px-1.5 py-1 text-gray-900 transition-colors focus:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:text-white dark:placeholder-gray-600 dark:focus:bg-white/[0.06]"
                         />
                       </td>
@@ -1528,18 +2030,19 @@ export default function Home() {
                             });
                           }}
                           placeholder="Add comment…"
+                          aria-label={`Comment for “${key}”`}
                           className="w-full resize-y rounded-md bg-transparent px-1.5 py-1 text-gray-600 transition-colors focus:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-blue-500/40 dark:text-gray-300 dark:placeholder-gray-600 dark:focus:bg-white/[0.06]"
                         />
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5">
                         {isDone ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                            <i className="fa-solid fa-circle-check" />
+                          <span className="status-badge-done inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
+                            <i aria-hidden="true" className="fa-solid fa-circle-check" />
                             Done
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                            <i className="fa-solid fa-circle-dot" />
+                          <span className="status-badge-new inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
+                            <i aria-hidden="true" className="fa-solid fa-circle-dot" />
                             New
                           </span>
                         )}
@@ -1547,8 +2050,10 @@ export default function Home() {
                     </tr>
                   );
                 })}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </section>
       </div>

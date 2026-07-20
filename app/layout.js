@@ -13,6 +13,10 @@ const themeScript = `
     var t = localStorage.getItem('theme');
     var isDark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.classList.toggle('dark', isDark);
+    var cv = localStorage.getItem('colorVision');
+    if (cv && cv !== 'default') {
+      document.documentElement.setAttribute('data-color-vision', cv);
+    }
   } catch (e) {}
 })();
 `;
