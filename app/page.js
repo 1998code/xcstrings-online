@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import pkg from "../package.json";
 
 const STORAGE_KEY = "xcstrings-online-data";
+const FORMAT_KEY = "xcstrings-online-format";
 const COLOR_VISION_KEY = "colorVision";
 
 // Color-vision modes for the appearance menu. The done/new hexes are only the
@@ -79,6 +80,99 @@ function setLocalizationValue(loc, value) {
   }
   base.stringUnit = { ...(base.stringUnit || { state: "new" }), value };
   return base;
+}
+
+// Parse a legacy .strings file into [{ key, value, comment }] entries.
+// Handles /* block */ and // line comments (attached to the entry that
+// follows), quoted or bare keys, and \" \\ \n \t \r \Uxxxx escapes.
+function parseStringsFile(text) {
+  const entries = [];
+  const n = text.length;
+  let i = 0;
+  let pendingComment = null;
+
+  function skipWhitespace() {
+    while (i < n && /\s/.test(text[i])) i++;
+  }
+
+  function readQuotedString() {
+    i++; // opening quote
+    let out = "";
+    while (i < n) {
+      const ch = text[i];
+      if (ch === "\\") {
+        const next = text[i + 1];
+        if (next === "n") out += "\n";
+        else if (next === "t") out += "\t";
+        else if (next === "r") out += "\r";
+        else if (next === "U" || next === "u") {
+          const hex = text.slice(i + 2, i + 6);
+          if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+            out += String.fromCharCode(parseInt(hex, 16));
+            i += 6;
+            continue;
+          }
+          out += next;
+        } else out += next ?? "";
+        i += 2;
+        continue;
+      }
+      if (ch === '"') {
+        i++;
+        return out;
+      }
+      out += ch;
+      i++;
+    }
+    throw new Error("Unterminated string literal");
+  }
+
+  while (i < n) {
+    skipWhitespace();
+    if (i >= n) break;
+    if (text.startsWith("/*", i)) {
+      const end = text.indexOf("*/", i + 2);
+      if (end === -1) throw new Error("Unterminated comment");
+      pendingComment = text.slice(i + 2, end).trim();
+      i = end + 2;
+      continue;
+    }
+    if (text.startsWith("//", i)) {
+      const end = text.indexOf("\n", i);
+      pendingComment = text.slice(i + 2, end === -1 ? n : end).trim();
+      i = end === -1 ? n : end + 1;
+      continue;
+    }
+    let key;
+    if (text[i] === '"') {
+      key = readQuotedString();
+    } else {
+      const match = /^[A-Za-z0-9_.-]+/.exec(text.slice(i));
+      if (!match) throw new Error(`Unexpected character "${text[i]}"`);
+      key = match[0];
+      i += key.length;
+    }
+    skipWhitespace();
+    if (text[i] !== "=") throw new Error(`Expected '=' after key "${key}"`);
+    i++;
+    skipWhitespace();
+    if (text[i] !== '"') throw new Error(`Expected quoted value for key "${key}"`);
+    const value = readQuotedString();
+    skipWhitespace();
+    if (text[i] === ";") i++;
+    entries.push({ key, value, comment: pendingComment || undefined });
+    pendingComment = null;
+  }
+  return entries;
+}
+
+function escapeStringsText(s) {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\t/g, "\\t")
+    .replace(/\r/g, "\\r");
 }
 
 // Small donut chart with the completion percentage in the middle, shown per
@@ -632,6 +726,10 @@ export default function Home() {
   const [urlCopied, setUrlCopied] = useState(false);
   const [colorVision, setColorVision] = useState("default");
   const [visionMenuOpen, setVisionMenuOpen] = useState(false);
+  // Which document type is open: "xcstrings" (multi-language catalog) or
+  // "strings" (single-language legacy file). Saving re-exports the same
+  // format that was imported.
+  const [docFormat, setDocFormat] = useState("xcstrings");
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const historySnapshotRef = useRef(null);
@@ -786,6 +884,16 @@ export default function Home() {
         // the history baseline so it can't be undone.
         historySnapshotRef.current = parsed;
         setData(parsed);
+        // Keep the selection valid for the restored document (matters in
+        // .strings mode, where the sidebar is hidden and the language can't
+        // be switched by hand).
+        const codes = getLocaleCodes(parsed);
+        if (codes.length && !codes.includes("en")) {
+          setSelectedLanguage(parsed.sourceLanguage || codes[0]);
+        }
+      }
+      if (localStorage.getItem(FORMAT_KEY) === "strings") {
+        setDocFormat("strings");
       }
     } catch (e) {
       console.error("Failed to load saved data from local storage:", e);
@@ -801,6 +909,7 @@ export default function Home() {
     const timeoutId = setTimeout(() => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(FORMAT_KEY, docFormat);
       } catch (e) {
         console.error("Failed to auto-save data to local storage:", e);
       }
@@ -809,7 +918,7 @@ export default function Home() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [data]);
+  }, [data, docFormat]);
 
   // Record undo history whenever the catalog changes. Debounced so a burst of
   // keystrokes in one cell collapses into a single undo step; capped at 50
@@ -849,12 +958,14 @@ export default function Home() {
     setData(next);
   }
 
-  async function translateText(sourceText, sourceLanguage) {
+  // Translate a batch of strings in a single request. Returns the translated
+  // values in the same order as sourceTexts.
+  async function translateTexts(sourceTexts, sourceLanguage) {
     const res = await fetch("/api/translate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        text: sourceText,
+        texts: sourceTexts,
         from: sourceLanguage,
         to: selectedLanguage,
       }),
@@ -864,21 +975,87 @@ export default function Home() {
       throw new Error(`Translation request failed with status ${res.status}`);
     }
 
-    return res.json();
+    const json = await res.json();
+    if (!Array.isArray(json.outputs) || json.outputs.length !== sourceTexts.length) {
+      throw new Error("Translation response did not match the request");
+    }
+    return json.outputs;
   }
 
-  // Read a .xcstrings file and load it into the editor. Shared by the Import
-  // button and drag-and-drop.
+  // Import a legacy .strings file. The format carries no locale, so entries
+  // land in the currently selected language: merged into the open catalog
+  // when any keys match, otherwise as a fresh catalog with that language as
+  // the source.
+  function loadStringsFile(text) {
+    const entries = parseStringsFile(text);
+    if (!entries.length) {
+      throw new Error("No key/value pairs found");
+    }
+    const overlap = entries.filter((e) => data.strings?.[e.key]).length;
+    const merge =
+      overlap > 0 &&
+      confirm(
+        `${overlap} of ${entries.length} keys match the open catalog.\n\n` +
+          `OK — merge them into ${langName(selectedLanguage)} (${selectedLanguage})\n` +
+          `Cancel — replace the catalog with this file`
+      );
+    if (merge) {
+      // Merging enriches the open document, so its format is kept.
+      setData((prev) => {
+        const next = { ...prev, strings: { ...prev.strings } };
+        for (const { key, value, comment } of entries) {
+          const entry = { ...(next.strings[key] || { extractionState: "manual" }) };
+          if (comment && !entry.comment) entry.comment = comment;
+          const localizations = { ...(entry.localizations || {}) };
+          const loc = setLocalizationValue(localizations[selectedLanguage], value);
+          if (loc.stringUnit) {
+            loc.stringUnit = { ...loc.stringUnit, state: "translated" };
+          }
+          localizations[selectedLanguage] = loc;
+          entry.localizations = localizations;
+          next.strings[key] = entry;
+        }
+        return next;
+      });
+    } else {
+      const strings = {};
+      for (const { key, value, comment } of entries) {
+        strings[key] = {
+          extractionState: "manual",
+          ...(comment ? { comment } : {}),
+          localizations: {
+            [selectedLanguage]: {
+              stringUnit: { state: "translated", value },
+            },
+          },
+        };
+      }
+      setData({ sourceLanguage: selectedLanguage, strings, version: "1.0" });
+      setDocFormat("strings");
+      // The search field lives in the (now hidden) sidebar — clear it so a
+      // stale query can't invisibly filter the table.
+      setLangSearch("");
+    }
+  }
+
+  // Read a .xcstrings or .strings file and load it into the editor. Shared by
+  // the Import button and drag-and-drop.
   function loadFile(file) {
     if (!file) return;
+    const isStrings = /\.strings$/i.test(file.name);
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
+        if (isStrings) {
+          loadStringsFile(e.target.result);
+          return;
+        }
         const parsed = JSON.parse(e.target.result);
         if (!parsed || typeof parsed.strings !== "object" || parsed.strings === null) {
           throw new Error("Missing a 'strings' object");
         }
         setData(parsed);
+        setDocFormat("xcstrings");
         // Point the editor at a language that actually exists in the file so
         // the table doesn't render against an absent locale.
         const codes = getLocaleCodes(parsed);
@@ -888,8 +1065,12 @@ export default function Home() {
             : parsed.sourceLanguage || codes[0] || "en"
         );
       } catch (err) {
-        console.error("Failed to parse .xcstrings file:", err);
-        alert("Could not read that file. Make sure it is a valid .xcstrings catalog.");
+        console.error(`Failed to parse ${isStrings ? ".strings" : ".xcstrings"} file:`, err);
+        alert(
+          isStrings
+            ? "Could not read that file. Make sure it is a valid .strings file."
+            : "Could not read that file. Make sure it is a valid .xcstrings catalog."
+        );
       }
     };
     reader.readAsText(file);
@@ -917,7 +1098,7 @@ export default function Home() {
   function importData() {
     const fileInput = document.createElement("input");
     fileInput.type = "file";
-    fileInput.accept = ".xcstrings";
+    fileInput.accept = ".xcstrings,.strings";
     fileInput.addEventListener("change", (e) => {
       loadFile(e.target.files[0]);
     });
@@ -956,45 +1137,65 @@ export default function Home() {
       return;
     }
 
+    // Only fill in strings that are still empty in the target language, so
+    // existing translations (including manual edits) are never overwritten.
+    const keys = Object.keys(data.strings).filter(
+      (key) =>
+        !readLocalization(data.strings[key].localizations?.[selectedLanguage])
+          .value
+    );
+    if (!keys.length) {
+      alert(
+        `Nothing to translate — every string already has a ${langName(selectedLanguage)} (${selectedLanguage}) value.`
+      );
+      return;
+    }
+
     setIsTranslating(true);
     try {
-      const keys = Object.keys(data.strings);
       const results = [];
-      const batchSize = 10;
+      const batchSize = 50;
 
       for (let i = 0; i < keys.length; i += batchSize) {
         const batchKeys = keys.slice(i, i + batchSize);
-        const batchResults = await Promise.all(
-          batchKeys.map(async (key) => {
-            const sourceText =
-              data.strings[key].localizations[sourceLanguage]?.stringUnit?.value ||
-              key;
-            try {
-              const json = await translateText(sourceText, sourceLanguage);
-              return { key, value: json.output ?? null };
-            } catch (e) {
-              console.error(`Failed to translate "${key}":`, e);
-              return { key, value: null };
-            }
-          })
+        const sourceTexts = batchKeys.map(
+          (key) =>
+            readLocalization(data.strings[key].localizations?.[sourceLanguage])
+              .value || key
         );
-        results.push(...batchResults);
+        try {
+          const outputs = await translateTexts(sourceTexts, sourceLanguage);
+          results.push(
+            ...batchKeys.map((key, j) => ({ key, value: outputs[j] ?? null }))
+          );
+        } catch (e) {
+          console.error(
+            `Failed to translate batch "${batchKeys[0]}"…"${batchKeys[batchKeys.length - 1]}":`,
+            e
+          );
+          results.push(...batchKeys.map((key) => ({ key, value: null })));
+        }
       }
 
       setData((prevData) => {
         const newData = { ...prevData, strings: { ...prevData.strings } };
         for (const { key, value } of results) {
           if (value == null || !newData.strings[key]) continue;
+          // Re-check against the latest state: skip anything the user filled
+          // in manually while the translation requests were in flight.
+          if (
+            readLocalization(newData.strings[key].localizations?.[selectedLanguage])
+              .value
+          ) {
+            continue;
+          }
           const stringEntry = { ...newData.strings[key] };
           const localizations = { ...stringEntry.localizations };
-          localizations[selectedLanguage] = {
-            ...(localizations[selectedLanguage] || {}),
-            stringUnit: {
-              ...(localizations[selectedLanguage]?.stringUnit || {}),
-              state: "translated",
-              value,
-            },
-          };
+          const loc = setLocalizationValue(localizations[selectedLanguage], value);
+          if (loc.stringUnit) {
+            loc.stringUnit = { ...loc.stringUnit, state: "translated" };
+          }
+          localizations[selectedLanguage] = loc;
           stringEntry.localizations = localizations;
           newData.strings[key] = stringEntry;
         }
@@ -1008,22 +1209,50 @@ export default function Home() {
   function resetData() {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(FORMAT_KEY);
     } catch (e) {
       console.error("Failed to clear saved data from local storage:", e);
     } finally {
       setData(sampleData);
+      setDocFormat("xcstrings");
       alert("Data has been reset.");
     }
   }
 
-  function exportData() {
-    // Save data JSON as .xcstrings file
+  function downloadBlob(content, filename) {
     const element = document.createElement("a");
-    const file = new Blob([JSON.stringify(data)], { type: "text/plain" });
+    const file = new Blob([content], { type: "text/plain" });
     element.href = URL.createObjectURL(file);
-    element.download = "Localizable.xcstrings";
+    element.download = filename;
     document.body.appendChild(element);
     element.click();
+    document.body.removeChild(element);
+    URL.revokeObjectURL(element.href);
+  }
+
+  function exportData() {
+    // Save data JSON as .xcstrings file
+    downloadBlob(JSON.stringify(data), "Localizable.xcstrings");
+  }
+
+  // Export the selected language as a legacy Localizable.strings file.
+  // Untranslated keys fall back to the source-language value, then the key,
+  // so the file is always complete and usable.
+  function exportStrings() {
+    const sourceLanguage = data.sourceLanguage || "en";
+    const lines = [];
+    for (const key of Object.keys(data.strings || {})) {
+      const entry = data.strings[key];
+      const value =
+        readLocalization(entry?.localizations?.[selectedLanguage]).value ||
+        readLocalization(entry?.localizations?.[sourceLanguage]).value ||
+        key;
+      if (entry?.comment) {
+        lines.push(`/* ${entry.comment.replace(/\*\//g, "*\\/")} */`);
+      }
+      lines.push(`"${escapeStringsText(key)}" = "${escapeStringsText(value)}";`, "");
+    }
+    downloadBlob(lines.join("\n"), "Localizable.strings");
   }
 
   const btnBase =
@@ -1187,7 +1416,7 @@ export default function Home() {
           <div className="rounded-3xl border border-dashed border-white/70 bg-white/15 px-12 py-10 text-center text-white shadow-2xl">
             <i aria-hidden="true" className="fa-solid fa-cloud-arrow-up text-5xl" />
             <p className="mt-4 text-lg font-semibold tracking-tight">
-              Drop your .xcstrings file
+              Drop your .xcstrings or .strings file
             </p>
           </div>
         </div>
@@ -1268,15 +1497,15 @@ export default function Home() {
                   {
                     icon: "fa-file-arrow-up",
                     title: "Import a catalog",
-                    body: "Click Upload or drag a .xcstrings file anywhere onto the page.",
+                    body: "Click Upload or drag a .xcstrings catalog — or a legacy .strings file — anywhere onto the page. A .strings file loads into the selected language.",
                   },
                   {
                     icon: "fa-download",
                     title: "Export",
-                    body: "Download your edits as Localizable.xcstrings, ready to drop back into your Xcode project.",
+                    body: "Save downloads the same format you imported — catalogs as Localizable.xcstrings, legacy files as Localizable.strings.",
                   },
                   {
-                    icon: "fa-arrow-rotate-left",
+                    icon: "fa-arrows-rotate",
                     title: "Start over",
                     body: "Reset clears your saved edits and reloads the built-in sample catalog.",
                   },
@@ -1439,8 +1668,8 @@ export default function Home() {
           <button
             className={btnSecondary}
             onClick={importData}
-            title="Upload a .xcstrings file"
-            aria-label="Upload a .xcstrings file"
+            title="Upload a .xcstrings or .strings file"
+            aria-label="Upload a .xcstrings or .strings file"
           >
             <i aria-hidden="true" className="fa-solid fa-arrow-up-from-bracket" />
             <span className="hidden md:inline">Upload</span>
@@ -1448,12 +1677,20 @@ export default function Home() {
 
           <button
             className={btnSecondary}
-            onClick={exportData}
-            title="Download .xcstrings file"
-            aria-label="Download .xcstrings file"
+            onClick={docFormat === "strings" ? exportStrings : exportData}
+            title={
+              docFormat === "strings"
+                ? "Download Localizable.strings"
+                : "Download Localizable.xcstrings"
+            }
+            aria-label={
+              docFormat === "strings"
+                ? "Download Localizable.strings"
+                : "Download Localizable.xcstrings"
+            }
           >
             <i aria-hidden="true" className="fa-solid fa-download" />
-            <span className="hidden md:inline">Download</span>
+            <span className="hidden md:inline">Save</span>
           </button>
 
           <button
@@ -1462,7 +1699,7 @@ export default function Home() {
             title="Reset to sample data"
             aria-label="Reset to sample data"
           >
-            <i aria-hidden="true" className="fa-solid fa-arrow-rotate-left" />
+            <i aria-hidden="true" className="fa-solid fa-arrows-rotate" />
             <span className="hidden md:inline">Reset</span>
           </button>
 
@@ -1675,7 +1912,8 @@ export default function Home() {
 
       {/* Content */}
       <div className="flex w-full max-w-7xl flex-col items-start gap-2 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch lg:gap-0">
-        {/* Languages List */}
+        {/* Languages List — hidden for single-language .strings documents */}
+        {docFormat !== "strings" && (
         <aside
           style={isDesktop ? { width: sidebarWidth } : undefined}
           className={`${card} w-full shrink-0 p-3 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:rounded-r-none lg:border-r-0`}
@@ -1810,9 +2048,10 @@ export default function Home() {
             )}
           </div>
         </aside>
+        )}
 
         {/* Resize handle between the Languages column and the table */}
-        {isDesktop && (
+        {docFormat !== "strings" && isDesktop && (
           <div
             onPointerDown={startResize}
             role="separator"
@@ -1827,7 +2066,9 @@ export default function Home() {
 
         {/* Table with inline edit feature */}
         <section
-          className={`${card} w-full overflow-hidden lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 lg:flex-col lg:rounded-l-none lg:border-l-0`}
+          className={`${card} w-full overflow-hidden lg:flex lg:min-h-0 lg:min-w-0 lg:flex-1 lg:flex-col ${
+            docFormat !== "strings" ? "lg:rounded-l-none lg:border-l-0" : ""
+          }`}
         >
           {/* One horizontal scroller wraps the fixed header and the scrolling
               body so they stay aligned when columns are dragged wider. */}
