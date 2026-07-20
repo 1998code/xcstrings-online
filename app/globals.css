@@ -19,30 +19,124 @@ html {
   text-rendering: optimizeLegibility;
 }
 
-/* Light mesh gradient — soft, colorful, professional */
 body {
   color: rgb(var(--foreground-rgb));
   min-height: 100vh;
   background-color: #eef1f7;
-  background-image:
-    radial-gradient(at 12% 18%, hsla(217, 90%, 72%, 0.45) 0px, transparent 55%),
-    radial-gradient(at 88% 12%, hsla(280, 80%, 78%, 0.38) 0px, transparent 50%),
-    radial-gradient(at 82% 88%, hsla(190, 85%, 70%, 0.40) 0px, transparent 52%),
-    radial-gradient(at 18% 92%, hsla(330, 75%, 80%, 0.35) 0px, transparent 50%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
 }
 
-/* Dark mesh gradient — deep, colorful, professional */
 .dark body {
   background-color: #0a0c10;
-  background-image:
-    radial-gradient(at 12% 18%, hsla(217, 85%, 45%, 0.40) 0px, transparent 55%),
-    radial-gradient(at 88% 12%, hsla(280, 75%, 50%, 0.32) 0px, transparent 50%),
-    radial-gradient(at 82% 88%, hsla(190, 80%, 45%, 0.32) 0px, transparent 52%),
-    radial-gradient(at 18% 92%, hsla(330, 70%, 50%, 0.28) 0px, transparent 50%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+}
+
+/* Liquid mesh gradient — animated, colorful blobs drifting behind content */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: #eef1f7;
+}
+
+.dark .mesh-bg {
+  background-color: #0a0c10;
+}
+
+.mesh-blob {
+  position: absolute;
+  display: block;
+  width: 48vw;
+  height: 48vw;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.6;
+  will-change: transform;
+}
+
+.dark .mesh-blob {
+  opacity: 0.5;
+  filter: blur(110px);
+}
+
+.mesh-blob-1 {
+  top: -12%;
+  left: -8%;
+  background: radial-gradient(circle at center, hsl(217, 92%, 66%), transparent 68%);
+  animation: meshFloat1 24s ease-in-out infinite alternate;
+}
+
+.mesh-blob-2 {
+  top: -10%;
+  right: -10%;
+  background: radial-gradient(circle at center, hsl(280, 85%, 72%), transparent 68%);
+  animation: meshFloat2 28s ease-in-out -6s infinite alternate;
+}
+
+.mesh-blob-3 {
+  bottom: -15%;
+  right: -8%;
+  background: radial-gradient(circle at center, hsl(190, 88%, 62%), transparent 68%);
+  animation: meshFloat3 26s ease-in-out -12s infinite alternate;
+}
+
+.mesh-blob-4 {
+  bottom: -12%;
+  left: -10%;
+  background: radial-gradient(circle at center, hsl(330, 80%, 72%), transparent 68%);
+  animation: meshFloat4 30s ease-in-out -3s infinite alternate;
+}
+
+.dark .mesh-blob-1 {
+  background: radial-gradient(circle at center, hsl(217, 85%, 44%), transparent 68%);
+}
+.dark .mesh-blob-2 {
+  background: radial-gradient(circle at center, hsl(280, 75%, 46%), transparent 68%);
+}
+.dark .mesh-blob-3 {
+  background: radial-gradient(circle at center, hsl(190, 80%, 40%), transparent 68%);
+}
+.dark .mesh-blob-4 {
+  background: radial-gradient(circle at center, hsl(330, 70%, 46%), transparent 68%);
+}
+
+@keyframes meshFloat1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(12vw, 8vh, 0) scale(1.25);
+  }
+}
+@keyframes meshFloat2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-10vw, 12vh, 0) scale(0.9);
+  }
+}
+@keyframes meshFloat3 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-14vw, -10vh, 0) scale(1.2);
+  }
+}
+@keyframes meshFloat4 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.15);
+  }
+  to {
+    transform: translate3d(12vw, -8vh, 0) scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-blob {
+    animation: none !important;
+  }
 }
 
 @layer utilities {

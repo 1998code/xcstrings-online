@@ -1,7 +1,7 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "XCStrings Online",
+  title: "Localizable Online",
   description: "Edit Xcode String Catalog anywhere, anytime.",
 };
 
