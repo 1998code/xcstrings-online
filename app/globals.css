@@ -3,31 +3,228 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 29, 29, 31;
+
+  /* Semantic status colors — swapped per color-vision mode below */
+  --status-done: #059669;
+  --status-new: #d97706;
+  --status-ring: #10b981;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+.dark {
+  --foreground-rgb: 245, 245, 247;
+  --status-done: #34d399;
+  --status-new: #fbbf24;
+  --status-ring: #34d399;
+}
+
+/* Color-vision modes (set as data-color-vision on <html>) */
+/* Protanopia / deuteranopia (red-green): blue vs. orange */
+:root[data-color-vision="protanopia"],
+:root[data-color-vision="deuteranopia"] {
+  --status-done: #0072b2;
+  --status-ring: #0072b2;
+}
+.dark[data-color-vision="protanopia"],
+.dark[data-color-vision="deuteranopia"] {
+  --status-done: #5eb3f6;
+  --status-ring: #5eb3f6;
+}
+
+/* Tritanopia (blue-yellow): green vs. red */
+:root[data-color-vision="tritanopia"] {
+  --status-new: #cc3311;
+}
+.dark[data-color-vision="tritanopia"] {
+  --status-new: #ff8266;
+}
+
+/* Grayscale (achromatopsia): rely on icons + text, plus luminance contrast */
+:root[data-color-vision="grayscale"] {
+  --status-done: #1f2937;
+  --status-new: #6b7280;
+  --status-ring: #374151;
+}
+.dark[data-color-vision="grayscale"] {
+  --status-done: #f3f4f6;
+  --status-new: #9ca3af;
+  --status-ring: #d1d5db;
+}
+
+[data-color-vision="grayscale"] .mesh-bg {
+  filter: grayscale(1);
+}
+
+/* Status badges + completion ring driven by the variables above */
+.status-badge-done {
+  color: var(--status-done);
+  background-color: color-mix(in srgb, var(--status-done) 12%, transparent);
+}
+
+.status-badge-new {
+  color: var(--status-new);
+  background-color: color-mix(in srgb, var(--status-new) 12%, transparent);
+}
+
+.progress-ring-done {
+  stroke: var(--status-ring);
+}
+
+/* Apple system typography (SF Pro on Apple platforms) */
+html {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  min-height: 100vh;
+  background-color: #eef1f7;
+}
+
+.dark body {
+  background-color: #0a0c10;
+}
+
+/* Liquid mesh gradient — animated, colorful blobs drifting behind content */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: #eef1f7;
+}
+
+.dark .mesh-bg {
+  background-color: #0a0c10;
+}
+
+.mesh-blob {
+  position: absolute;
+  display: block;
+  width: 48vw;
+  height: 48vw;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.6;
+  will-change: transform;
+}
+
+.dark .mesh-blob {
+  opacity: 0.5;
+  filter: blur(110px);
+}
+
+.mesh-blob-1 {
+  top: -12%;
+  left: -8%;
+  background: radial-gradient(circle at center, hsl(217, 92%, 66%), transparent 68%);
+  animation: meshFloat1 24s ease-in-out infinite alternate;
+}
+
+.mesh-blob-2 {
+  top: -10%;
+  right: -10%;
+  background: radial-gradient(circle at center, hsl(280, 85%, 72%), transparent 68%);
+  animation: meshFloat2 28s ease-in-out -6s infinite alternate;
+}
+
+.mesh-blob-3 {
+  bottom: -15%;
+  right: -8%;
+  background: radial-gradient(circle at center, hsl(190, 88%, 62%), transparent 68%);
+  animation: meshFloat3 26s ease-in-out -12s infinite alternate;
+}
+
+.mesh-blob-4 {
+  bottom: -12%;
+  left: -10%;
+  background: radial-gradient(circle at center, hsl(330, 80%, 72%), transparent 68%);
+  animation: meshFloat4 30s ease-in-out -3s infinite alternate;
+}
+
+.dark .mesh-blob-1 {
+  background: radial-gradient(circle at center, hsl(217, 85%, 44%), transparent 68%);
+}
+.dark .mesh-blob-2 {
+  background: radial-gradient(circle at center, hsl(280, 75%, 46%), transparent 68%);
+}
+.dark .mesh-blob-3 {
+  background: radial-gradient(circle at center, hsl(190, 80%, 40%), transparent 68%);
+}
+.dark .mesh-blob-4 {
+  background: radial-gradient(circle at center, hsl(330, 70%, 46%), transparent 68%);
+}
+
+@keyframes meshFloat1 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(12vw, 8vh, 0) scale(1.25);
+  }
+}
+@keyframes meshFloat2 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-10vw, 12vh, 0) scale(0.9);
+  }
+}
+@keyframes meshFloat3 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(-14vw, -10vh, 0) scale(1.2);
+  }
+}
+@keyframes meshFloat4 {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.15);
+  }
+  to {
+    transform: translate3d(12vw, -8vh, 0) scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mesh-blob {
+    animation: none !important;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+}
+
+/* Refined, Apple-like thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 128, 0.4) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(120, 120, 128, 0.4);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(120, 120, 128, 0.6);
 }
