@@ -1,4 +1,4 @@
-// GET: /api/translate?text=Hello&from=en&to=zh
+// POST: /api/translate { "text": "Hello", "from": "en", "to": "zh" }
 
 /**
  * Direct Google Translate API implementation
@@ -24,24 +24,16 @@ function toGoogleLang(code) {
   return code.split("-")[0];
 }
 
-export default async function handler(req) {
-  return GET(req);
+function badRequest(message) {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 400,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
-export async function GET(req) {
-  const url = new URL(req.url);
-  const text = url.searchParams.get("text");
-  const from = url.searchParams.get("from") || "auto";
-  const to = url.searchParams.get("to") || "en";
-
+async function handleTranslation({ text, from, to }) {
   if (!text) {
-    return new Response(
-      JSON.stringify({ error: "Text parameter is required" }),
-      {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return badRequest("Text parameter is required");
   }
 
   try {
@@ -53,12 +45,7 @@ export async function GET(req) {
       text
     )}`;
 
-    const response = await fetch(translateUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      },
-    });
+    const response = await fetch(translateUrl);
 
     if (!response.ok) {
       throw new Error(`Translation API returned ${response.status}`);
@@ -79,7 +66,7 @@ export async function GET(req) {
         input: text,
         output: translatedText || text,
         from: data.src || from,
-        to,
+        to
       }),
       {
         status: 200,
@@ -91,12 +78,34 @@ export async function GET(req) {
     return new Response(
       JSON.stringify({
         error: "Translation failed",
-        message: error.message,
+        message: error.message
       }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" },
       }
     );
+  }
+}
+
+export async function GET(req) {
+  const url = new URL(req.url);
+  return handleTranslation({
+    text: url.searchParams.get("text"),
+    from: url.searchParams.get("from") || "auto",
+    to: url.searchParams.get("to") || "en",
+  });
+}
+
+export async function POST(req) {
+  try {
+    const body = await req.json();
+    return handleTranslation({
+      text: body?.text,
+      from: body?.from || "auto",
+      to: body?.to || "en",
+    });
+  } catch (error) {
+    return badRequest("Invalid JSON body");
   }
 }

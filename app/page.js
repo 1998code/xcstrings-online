@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const STORAGE_KEY = "xcstrings-online-data";
 
@@ -477,6 +477,7 @@ export default function Home() {
   const [selectedLanguage, setSelectedLanguage] = useState("en");
   const [data, setData] = useState(sampleData);
   const [isTranslating, setIsTranslating] = useState(false);
+  const hasLoadedFromStorageRef = useRef(false);
 
   // Load previously auto-saved data from local storage on mount.
   // Kept in useEffect (not useState initializer) to avoid SSR hydration mismatch.
@@ -488,17 +489,45 @@ export default function Home() {
       }
     } catch (e) {
       console.error("Failed to load saved data from local storage:", e);
+    } finally {
+      hasLoadedFromStorageRef.current = true;
     }
   }, []);
 
   // Auto-save data to local storage whenever it changes (temporary safeguard).
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-      console.error("Failed to auto-save data to local storage:", e);
-    }
+    if (!hasLoadedFromStorageRef.current) return;
+
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {
+        console.error("Failed to auto-save data to local storage:", e);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [data]);
+
+  async function translateText(sourceText, sourceLanguage) {
+    const res = await fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: sourceText,
+        from: sourceLanguage,
+        to: selectedLanguage,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Translation request failed with status ${res.status}`);
+    }
+
+    return res.json();
+  }
 
   function importData() {
     const fileInput = document.createElement("input");
@@ -529,45 +558,60 @@ export default function Home() {
     setIsTranslating(true);
     try {
       const keys = Object.keys(data.strings);
-      const results = await Promise.all(
-        keys.map(async (key) => {
-          const sourceText =
-            data.strings[key].localizations[sourceLanguage]?.stringUnit?.value ||
-            key;
-          try {
-            const res = await fetch(
-              `/api/translate?text=${encodeURIComponent(
-                sourceText
-              )}&from=${sourceLanguage}&to=${selectedLanguage}`
-            );
-            const json = await res.json();
-            return { key, value: json.output ?? null };
-          } catch (e) {
-            console.error(`Failed to translate "${key}":`, e);
-            return { key, value: null };
-          }
-        })
-      );
+      const results = [];
+      const batchSize = 10;
 
-      const newData = { ...data, strings: { ...data.strings } };
-      for (const { key, value } of results) {
-        if (value == null) continue;
-        const stringEntry = { ...newData.strings[key] };
-        const localizations = { ...stringEntry.localizations };
-        localizations[selectedLanguage] = {
-          ...(localizations[selectedLanguage] || {}),
-          stringUnit: {
-            ...(localizations[selectedLanguage]?.stringUnit || {}),
-            state: "translated",
-            value,
-          },
-        };
-        stringEntry.localizations = localizations;
-        newData.strings[key] = stringEntry;
+      for (let i = 0; i < keys.length; i += batchSize) {
+        const batchKeys = keys.slice(i, i + batchSize);
+        const batchResults = await Promise.all(
+          batchKeys.map(async (key) => {
+            const sourceText =
+              data.strings[key].localizations[sourceLanguage]?.stringUnit?.value ||
+              key;
+            try {
+              const json = await translateText(sourceText, sourceLanguage);
+              return { key, value: json.output ?? null };
+            } catch (e) {
+              console.error(`Failed to translate "${key}":`, e);
+              return { key, value: null };
+            }
+          })
+        );
+        results.push(...batchResults);
       }
-      setData(newData);
+
+      setData((prevData) => {
+        const newData = { ...prevData, strings: { ...prevData.strings } };
+        for (const { key, value } of results) {
+          if (value == null || !newData.strings[key]) continue;
+          const stringEntry = { ...newData.strings[key] };
+          const localizations = { ...stringEntry.localizations };
+          localizations[selectedLanguage] = {
+            ...(localizations[selectedLanguage] || {}),
+            stringUnit: {
+              ...(localizations[selectedLanguage]?.stringUnit || {}),
+              state: "translated",
+              value,
+            },
+          };
+          stringEntry.localizations = localizations;
+          newData.strings[key] = stringEntry;
+        }
+        return newData;
+      });
     } finally {
       setIsTranslating(false);
+    }
+  }
+
+  function resetData() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.error("Failed to clear saved data from local storage:", e);
+    } finally {
+      setData(sampleData);
+      alert("Data has been reset.");
     }
   }
 
@@ -588,7 +632,7 @@ export default function Home() {
           {/* Reset Button */}
           <button
             className="bg-white border border-gray-300/25 rounded-lg p-2 shadow-md dark:bg-gray-900/50 dark:hover:bg-gray-900"
-            onClick={() => { localStorage.removeItem(STORAGE_KEY); setData(sampleData); alert("Data has been reset.") }}
+            onClick={resetData}
           >
             Reset
           </button>
