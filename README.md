@@ -1,4 +1,4 @@
-![image](https://github.com/1998code/xcstrings-online/assets/54872601/676ee304-b9ff-4e71-b88d-a985c57d56b1)
+<img width="1920" height="1080" alt="hero" src="https://github.com/user-attachments/assets/42953275-7b09-499e-8f58-e288786bbfaf" />
 
 # Localizable Online
 ### Edit Xcode String Catalog anywhere, anytime.
@@ -6,8 +6,6 @@
 > Formerly **XCStrings Online**.
 
 Demo: https://xcstrings-online.vercel.app
-
-<img width="1112" alt="Screenshot 2024-04-23 at 10 33 40 PM" src="https://github.com/1998code/xcstrings-online/assets/54872601/741fcb83-dbc4-4bf4-87f8-d4a92c1ca567">
 
 ## Features
 - **Import** — drag & drop a `.xcstrings` file anywhere, or use the Upload button
@@ -26,9 +24,6 @@ Demo: https://xcstrings-online.vercel.app
 - **Apple-style UI** — SF-style typography, FontAwesome icons, animated mesh gradient
 - **Built-in user guide**
 
-## Video Demo
-https://x.com/1998design/status/1782763094835356030
-
 ## Sample XCStrings File by Apple
 https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizable.xcstrings
 
@@ -41,6 +36,8 @@ https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizab
 | Auto Save to LocalStorage (Temporary) | ✅ Done | [#1](https://github.com/1998code/xcstrings-online/issues/1) |
 | AI Translation | ✅ Done | [#2](https://github.com/1998code/xcstrings-online/issues/2) |
 | Live Collaboration | Planning | [#3](https://github.com/1998code/xcstrings-online/issues/3) |
+
+<img width="1391" height="1017" alt="Screenshot" src="https://github.com/user-attachments/assets/e83574d0-bea1-42f0-872f-c335f49421e3" />
 
 ## Contribute to this project
 
