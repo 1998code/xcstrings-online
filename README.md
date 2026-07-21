@@ -44,6 +44,14 @@ https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizab
 First, fork this project and run the development server:
 
 ```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+# or
+bun install
+
 npm run dev
 # or
 yarn dev
