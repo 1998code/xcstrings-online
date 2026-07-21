@@ -41,7 +41,7 @@ https://github.com/apple/sample-backyard-birds/blob/main/Multiplatform/Localizab
 
 ## Contribute to this project
 
-First, fork this project and run the development server:
+First, fork this project, install dependencies, and run the development server:
 
 ```bash
 npm install
