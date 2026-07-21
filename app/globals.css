@@ -8,6 +8,7 @@
   /* Semantic status colors — swapped per color-vision mode below */
   --status-done: #059669;
   --status-new: #d97706;
+  --status-review: #7c3aed;
   --status-ring: #10b981;
 }
 
@@ -15,6 +16,7 @@
   --foreground-rgb: 245, 245, 247;
   --status-done: #34d399;
   --status-new: #fbbf24;
+  --status-review: #a78bfa;
   --status-ring: #34d399;
 }
 
@@ -23,11 +25,13 @@
 :root[data-color-vision="protanopia"],
 :root[data-color-vision="deuteranopia"] {
   --status-done: #0072b2;
+  --status-review: #aa4499;
   --status-ring: #0072b2;
 }
 .dark[data-color-vision="protanopia"],
 .dark[data-color-vision="deuteranopia"] {
   --status-done: #5eb3f6;
+  --status-review: #cc79a7;
   --status-ring: #5eb3f6;
 }
 
@@ -43,11 +47,13 @@
 :root[data-color-vision="grayscale"] {
   --status-done: #1f2937;
   --status-new: #6b7280;
+  --status-review: #4b5563;
   --status-ring: #374151;
 }
 .dark[data-color-vision="grayscale"] {
   --status-done: #f3f4f6;
   --status-new: #9ca3af;
+  --status-review: #d1d5db;
   --status-ring: #d1d5db;
 }
 
@@ -64,6 +70,11 @@
 .status-badge-new {
   color: var(--status-new);
   background-color: color-mix(in srgb, var(--status-new) 12%, transparent);
+}
+
+.status-badge-review {
+  color: var(--status-review);
+  background-color: color-mix(in srgb, var(--status-review) 12%, transparent);
 }
 
 .progress-ring-done {

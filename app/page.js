@@ -82,6 +82,60 @@ function setLocalizationValue(loc, value) {
   return base;
 }
 
+// Return a new localization object with the representative state updated,
+// mirroring setLocalizationValue's handling of the `variations` shape.
+function setLocalizationState(loc, state) {
+  const base = loc ? { ...loc } : {};
+  if (!base.stringUnit && base.variations) {
+    const groupKey = base.variations.plural
+      ? "plural"
+      : base.variations.device
+      ? "device"
+      : null;
+    if (groupKey) {
+      const variations = { ...base.variations };
+      const group = { ...variations[groupKey] };
+      const caseKey = group.other ? "other" : Object.keys(group)[0];
+      const sub = { ...(group[caseKey] || {}) };
+      sub.stringUnit = { ...(sub.stringUnit || { value: "" }), state };
+      group[caseKey] = sub;
+      variations[groupKey] = group;
+      base.variations = variations;
+      return base;
+    }
+  }
+  base.stringUnit = { ...(base.stringUnit || { value: "" }), state };
+  return base;
+}
+
+// Selectable String Catalog states, in workflow order.
+const STATE_OPTIONS = [
+  {
+    value: "new",
+    label: "New",
+    menuLabel: "New",
+    icon: "fa-circle-dot",
+    badge: "status-badge-new",
+    colorVar: "--status-new",
+  },
+  {
+    value: "needs_review",
+    label: "Review",
+    menuLabel: "Needs Review",
+    icon: "fa-circle-exclamation",
+    badge: "status-badge-review",
+    colorVar: "--status-review",
+  },
+  {
+    value: "translated",
+    label: "Done",
+    menuLabel: "Done",
+    icon: "fa-circle-check",
+    badge: "status-badge-done",
+    colorVar: "--status-done",
+  },
+];
+
 // Parse a legacy .strings file into [{ key, value, comment }] entries.
 // Handles /* block */ and // line comments (attached to the entry that
 // follows), quoted or bare keys, and \" \\ \n \t \r \Uxxxx escapes.
@@ -427,12 +481,6 @@ export default function Home() {
               "value": "繼續"
             }
           },
-          "zh-HK": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "繼續"
-            }
-          },
           "ar": {
             "stringUnit": {
               "state": "translated",
@@ -450,6 +498,24 @@ export default function Home() {
               "state": "translated",
               "value": "Continua"
             }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Continuar"
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "続ける"
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "계속"
+            }
           }
         }
       },
@@ -463,12 +529,6 @@ export default function Home() {
             }
           },
           "zh-Hant": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "歷史"
-            }
-          },
-          "zh-HK": {
             "stringUnit": {
               "state": "translated",
               "value": "歷史"
@@ -491,6 +551,24 @@ export default function Home() {
               "state": "translated",
               "value": "Cronologia"
             }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Historial"
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "履歴"
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "기록"
+            }
           }
         }
       },
@@ -504,12 +582,6 @@ export default function Home() {
             }
           },
           "zh-Hant": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "載入中......"
-            }
-          },
-          "zh-HK": {
             "stringUnit": {
               "state": "translated",
               "value": "載入中......"
@@ -532,6 +604,24 @@ export default function Home() {
               "state": "translated",
               "value": "Caricamento..."
             }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Cargando..."
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "読み込み中..."
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "로드 중..."
+            }
           }
         }
       },
@@ -545,12 +635,6 @@ export default function Home() {
             }
           },
           "zh-Hant": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "返回"
-            }
-          },
-          "zh-HK": {
             "stringUnit": {
               "state": "translated",
               "value": "返回"
@@ -573,6 +657,24 @@ export default function Home() {
               "state": "translated",
               "value": "In Dietro"
             }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Volver"
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "戻る"
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "돌아가기"
+            }
           }
         }
       },
@@ -586,12 +688,6 @@ export default function Home() {
             }
           },
           "zh-Hant": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "顯示歷史"
-            }
-          },
-          "zh-HK": {
             "stringUnit": {
               "state": "translated",
               "value": "顯示歷史"
@@ -614,6 +710,24 @@ export default function Home() {
               "state": "translated",
               "value": "Mostra Cronologia"
             }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Mostrar historial"
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "履歴を表示"
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "기록 보기"
+            }
           }
         }
       },
@@ -627,12 +741,6 @@ export default function Home() {
             }
           },
           "zh-Hant": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "版本"
-            }
-          },
-          "zh-HK": {
             "stringUnit": {
               "state": "translated",
               "value": "版本"
@@ -655,6 +763,24 @@ export default function Home() {
               "state": "translated",
               "value": "La Versione"
             }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Versión"
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "バージョン"
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "버전"
+            }
           }
         }
       },
@@ -668,12 +794,6 @@ export default function Home() {
             }
           },
           "zh-Hant": {
-            "stringUnit": {
-              "state": "translated",
-              "value": "最新功能"
-            }
-          },
-          "zh-HK": {
             "stringUnit": {
               "state": "translated",
               "value": "最新功能"
@@ -695,6 +815,24 @@ export default function Home() {
             "stringUnit": {
               "state": "translated",
               "value": "Le novità"
+            }
+          },
+          "es": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "Novedades de"
+            }
+          },
+          "ja": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "新機能"
+            }
+          },
+          "ko": {
+            "stringUnit": {
+              "state": "translated",
+              "value": "새로운 기능"
             }
           }
         }
@@ -726,15 +864,23 @@ export default function Home() {
   const [urlCopied, setUrlCopied] = useState(false);
   const [colorVision, setColorVision] = useState("default");
   const [visionMenuOpen, setVisionMenuOpen] = useState(false);
+  const [stateMenuKey, setStateMenuKey] = useState(null);
+  // Right-click context menu on a sidebar language row: {code, x, y} or null.
+  const [langMenu, setLangMenu] = useState(null);
   // Which document type is open: "xcstrings" (multi-language catalog) or
   // "strings" (single-language legacy file). Saving re-exports the same
   // format that was imported.
   const [docFormat, setDocFormat] = useState("xcstrings");
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
+  // In-app replacement for window.alert/confirm:
+  // { type, title, message, confirmLabel, cancelLabel }.
+  const [dialog, setDialog] = useState(null);
   const historySnapshotRef = useRef(null);
   const hasLoadedFromStorageRef = useRef(false);
   const guideCloseRef = useRef(null);
+  const dialogResolveRef = useRef(null);
+  const dialogPrimaryRef = useRef(null);
 
   const SIDEBAR_MIN = 180;
   const SIDEBAR_MAX = 480;
@@ -759,6 +905,26 @@ export default function Home() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [visionMenuOpen]);
+
+  // Close the row state menu on Escape or any press outside it. A fixed
+  // overlay doesn't work here: the card's backdrop-blur makes it the
+  // containing block for fixed descendants, so the overlay can't cover
+  // the whole viewport.
+  useEffect(() => {
+    if (stateMenuKey === null) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") setStateMenuKey(null);
+    };
+    const onDown = (e) => {
+      if (!e.target.closest?.("[data-state-menu]")) setStateMenuKey(null);
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [stateMenuKey]);
 
   // Track whether the two-column resizable layout is active (lg breakpoint).
   useEffect(() => {
@@ -790,6 +956,61 @@ export default function Home() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [guideOpen]);
+
+  // Close the alert/confirm dialog on Escape (resolving as a cancel), and move
+  // focus onto its primary button on open.
+  useEffect(() => {
+    if (!dialog) return;
+    dialogPrimaryRef.current?.focus();
+    const onKey = (e) => {
+      if (e.key === "Escape") closeDialog(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dialog]);
+
+  // Promise-based in-app replacements for window.alert/confirm. Only one
+  // dialog is shown at a time; opening a new one resolves the previous as a
+  // cancel so no caller is left hanging.
+  function openDialog(config) {
+    return new Promise((resolve) => {
+      dialogResolveRef.current?.(false);
+      dialogResolveRef.current = resolve;
+      setDialog(config);
+    });
+  }
+
+  function closeDialog(result) {
+    setDialog(null);
+    const resolve = dialogResolveRef.current;
+    dialogResolveRef.current = null;
+    resolve?.(result);
+  }
+
+  function showAlert(message, { title = "Notice", icon = "fa-circle-info" } = {}) {
+    return openDialog({ type: "alert", title, icon, message, confirmLabel: "OK" });
+  }
+
+  function showConfirm(
+    message,
+    {
+      title = "Are you sure?",
+      icon = "fa-circle-question",
+      confirmLabel = "OK",
+      cancelLabel = "Cancel",
+      danger = false,
+    } = {}
+  ) {
+    return openDialog({
+      type: "confirm",
+      title,
+      icon,
+      message,
+      confirmLabel,
+      cancelLabel,
+      danger,
+    });
+  }
 
   // Drag a table column border to resize that column.
   function startColResize(e, colKey) {
@@ -986,7 +1207,7 @@ export default function Home() {
   // land in the currently selected language: merged into the open catalog
   // when any keys match, otherwise as a fresh catalog with that language as
   // the source.
-  function loadStringsFile(text) {
+  async function loadStringsFile(text) {
     const entries = parseStringsFile(text);
     if (!entries.length) {
       throw new Error("No key/value pairs found");
@@ -994,11 +1215,15 @@ export default function Home() {
     const overlap = entries.filter((e) => data.strings?.[e.key]).length;
     const merge =
       overlap > 0 &&
-      confirm(
-        `${overlap} of ${entries.length} keys match the open catalog.\n\n` +
-          `OK — merge them into ${langName(selectedLanguage)} (${selectedLanguage})\n` +
-          `Cancel — replace the catalog with this file`
-      );
+      (await showConfirm(
+        `${overlap} of ${entries.length} keys match the open catalog. Merge them into ${langName(selectedLanguage)} (${selectedLanguage}), or replace the whole catalog with this file?`,
+        {
+          title: "Import .strings",
+          icon: "fa-file-arrow-up",
+          confirmLabel: "Merge",
+          cancelLabel: "Replace catalog",
+        }
+      ));
     if (merge) {
       // Merging enriches the open document, so its format is kept.
       setData((prev) => {
@@ -1044,10 +1269,10 @@ export default function Home() {
     if (!file) return;
     const isStrings = /\.strings$/i.test(file.name);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         if (isStrings) {
-          loadStringsFile(e.target.result);
+          await loadStringsFile(e.target.result);
           return;
         }
         const parsed = JSON.parse(e.target.result);
@@ -1066,10 +1291,11 @@ export default function Home() {
         );
       } catch (err) {
         console.error(`Failed to parse ${isStrings ? ".strings" : ".xcstrings"} file:`, err);
-        alert(
+        showAlert(
           isStrings
             ? "Could not read that file. Make sure it is a valid .strings file."
-            : "Could not read that file. Make sure it is a valid .xcstrings catalog."
+            : "Could not read that file. Make sure it is a valid .xcstrings catalog.",
+          { title: "Import failed", icon: "fa-triangle-exclamation" }
         );
       }
     };
@@ -1131,8 +1357,9 @@ export default function Home() {
   async function translateAll() {
     const sourceLanguage = data.sourceLanguage || "en";
     if (selectedLanguage === sourceLanguage) {
-      alert(
-        "The selected language is the source language. Pick a different language to translate into."
+      showAlert(
+        "The selected language is the source language. Pick a different language to translate into.",
+        { title: "Translate all", icon: "fa-wand-magic-sparkles" }
       );
       return;
     }
@@ -1145,8 +1372,9 @@ export default function Home() {
           .value
     );
     if (!keys.length) {
-      alert(
-        `Nothing to translate — every string already has a ${langName(selectedLanguage)} (${selectedLanguage}) value.`
+      showAlert(
+        `Nothing to translate — every string already has a ${langName(selectedLanguage)} (${selectedLanguage}) value.`,
+        { title: "Translate all", icon: "fa-wand-magic-sparkles" }
       );
       return;
     }
@@ -1214,7 +1442,17 @@ export default function Home() {
     }
   }
 
-  function resetData() {
+  async function resetData() {
+    const ok = await showConfirm(
+      "This clears your saved edits and reloads the built-in sample catalog. Save a copy first if you want to keep your work.",
+      {
+        title: "Reset all data?",
+        icon: "fa-arrows-rotate",
+        confirmLabel: "Reset",
+        danger: true,
+      }
+    );
+    if (!ok) return;
     try {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(FORMAT_KEY);
@@ -1223,7 +1461,10 @@ export default function Home() {
     } finally {
       setData(sampleData);
       setDocFormat("xcstrings");
-      alert("Data has been reset.");
+      showAlert("Data has been reset.", {
+        title: "Reset complete",
+        icon: "fa-arrows-rotate",
+      });
     }
   }
 
@@ -1267,6 +1508,7 @@ export default function Home() {
     "inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60";
   const btnSecondary = `${btnBase} px-3.5 py-2 text-sm text-gray-700 dark:text-gray-100 bg-white/70 dark:bg-white/10 border border-black/[0.06] dark:border-white/10 shadow-sm hover:bg-white dark:hover:bg-white/20`;
   const btnPrimary = `${btnBase} px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-500 shadow-md shadow-blue-600/25`;
+  const btnDanger = `${btnBase} px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-500 shadow-md shadow-red-600/25`;
   const iconBtn = `${btnBase} h-9 w-9 text-gray-700 dark:text-gray-100 bg-white/70 dark:bg-white/10 border border-black/[0.06] dark:border-white/10 shadow-sm hover:bg-white dark:hover:bg-white/20`;
   const card =
     "rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/70 dark:bg-white/[0.06] backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]";
@@ -1316,7 +1558,14 @@ export default function Home() {
     const name = langName(code).toLowerCase();
     return name.includes(q) || code.toLowerCase().includes(q);
   });
-  const filteredLocaleCodes = langMatches.length ? langMatches : localeCodes;
+  // Sidebar order: most-complete languages first, ties broken alphabetically.
+  const filteredLocaleCodes = (langMatches.length ? langMatches : localeCodes)
+    .slice()
+    .sort(
+      (a, b) =>
+        completionForLang(b) - completionForLang(a) ||
+        langName(a).localeCompare(langName(b))
+    );
 
   // Autosuggest matches for the "add language" combobox.
   const addLangMatches = addableLanguages.filter((l) => {
@@ -1398,6 +1647,35 @@ export default function Home() {
     setSelectedLanguage(code);
   }
 
+  // Remove a language: strips its localizations from every key. The source
+  // language can't be removed (getLocaleCodes always re-adds it). Undo/redo
+  // covers accidental removals, but confirm first since it touches every key.
+  async function removeLanguage(code) {
+    const ok = await showConfirm(
+      `Remove ${langName(code)} (${code}) and its translations from all ${totalKeys} keys? You can undo this.`,
+      {
+        title: "Remove language",
+        icon: "fa-trash-can",
+        confirmLabel: "Remove",
+      }
+    );
+    if (!ok) return;
+    setData((prev) => {
+      const next = { ...prev, strings: { ...prev.strings } };
+      for (const key of Object.keys(next.strings)) {
+        const entry = next.strings[key];
+        if (!entry?.localizations?.[code]) continue;
+        const localizations = { ...entry.localizations };
+        delete localizations[code];
+        next.strings[key] = { ...entry, localizations };
+      }
+      return next;
+    });
+    if (selectedLanguage === code) {
+      setSelectedLanguage(data.sourceLanguage || "en");
+    }
+  }
+
   return (
     <main
       className="relative flex min-h-screen flex-col items-center gap-2 px-4 pb-2 pt-2 sm:px-6 sm:pb-3 sm:pt-3 lg:h-screen lg:min-h-0 lg:overflow-hidden"
@@ -1465,6 +1743,52 @@ export default function Home() {
             >
               Continue anyway
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* In-app alert / confirm dialog */}
+      {dialog && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          role={dialog.type === "confirm" ? "dialog" : "alertdialog"}
+          aria-modal="true"
+          aria-label={dialog.title}
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => closeDialog(false)}
+          />
+          <div className={`${card} relative z-10 w-full max-w-sm p-6`}>
+            <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight text-gray-900 dark:text-white">
+              <i
+                aria-hidden="true"
+                className={`fa-solid ${dialog.icon} ${
+                  dialog.danger ? "text-red-500" : "text-blue-500"
+                }`}
+              />
+              {dialog.title}
+            </h2>
+            <p className="mt-2.5 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+              {dialog.message}
+            </p>
+            <div className="mt-5 flex justify-end gap-2.5">
+              {dialog.type === "confirm" && (
+                <button
+                  onClick={() => closeDialog(false)}
+                  className={btnSecondary}
+                >
+                  {dialog.cancelLabel}
+                </button>
+              )}
+              <button
+                ref={dialogPrimaryRef}
+                onClick={() => closeDialog(true)}
+                className={dialog.danger ? btnDanger : btnPrimary}
+              >
+                {dialog.confirmLabel}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1969,6 +2293,14 @@ export default function Home() {
                 <li key={lang}>
                   <button
                     onClick={() => setSelectedLanguage(lang)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setLangMenu({
+                        code: lang,
+                        x: Math.min(e.clientX, window.innerWidth - 240),
+                        y: Math.min(e.clientY, window.innerHeight - 120),
+                      });
+                    }}
                     aria-current={isActive ? "true" : undefined}
                     aria-label={`${langName(lang)} (${lang}), ${completionForLang(lang)}% translated`}
                     className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
@@ -2056,6 +2388,54 @@ export default function Home() {
             )}
           </div>
         </aside>
+        )}
+
+        {/* Right-click context menu for a sidebar language row. Rendered
+            outside the sidebar card: its backdrop-blur creates a containing
+            block that would hijack position:fixed coordinates. */}
+        {langMenu && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setLangMenu(null)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setLangMenu(null);
+              }}
+            />
+            <div
+              role="menu"
+              aria-label={`Actions for ${langName(langMenu.code)}`}
+              style={{ left: langMenu.x, top: langMenu.y }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setLangMenu(null);
+              }}
+              className="fixed z-50 w-56 rounded-xl border border-black/[0.08] bg-white/95 p-1 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/95"
+            >
+              <div className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                {langName(langMenu.code)} ({langMenu.code})
+              </div>
+              {langMenu.code === (data.sourceLanguage || "en") ? (
+                <div className="px-2.5 py-2 text-xs text-gray-400 dark:text-gray-500">
+                  The source language can&rsquo;t be removed.
+                </div>
+              ) : (
+                <button
+                  role="menuitem"
+                  autoFocus
+                  onClick={() => {
+                    const code = langMenu.code;
+                    setLangMenu(null);
+                    removeLanguage(code);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/10"
+                >
+                  <i aria-hidden="true" className="fa-solid fa-trash-can text-xs" />
+                  Remove language…
+                </button>
+              )}
+            </div>
+          </>
         )}
 
         {/* Resize handle between the Languages column and the table */}
@@ -2226,7 +2606,14 @@ export default function Home() {
                   const view = readLocalization(
                     data.strings[key]?.localizations?.[selectedLanguage]
                   );
-                  const isDone = view.state === "translated";
+                  const stateValue =
+                    view.state === "translated" ||
+                    view.state === "needs_review"
+                      ? view.state
+                      : "new";
+                  const stateOpt = STATE_OPTIONS.find(
+                    (o) => o.value === stateValue
+                  );
                   return (
                     <tr
                       key={key}
@@ -2284,17 +2671,110 @@ export default function Home() {
                         />
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5">
-                        {isDone ? (
-                          <span className="status-badge-done inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
-                            <i aria-hidden="true" className="fa-solid fa-circle-check" />
-                            Done
-                          </span>
-                        ) : (
-                          <span className="status-badge-new inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium">
-                            <i aria-hidden="true" className="fa-solid fa-circle-dot" />
-                            New
-                          </span>
-                        )}
+                        <div className="relative inline-block" data-state-menu>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStateMenuKey((open) =>
+                                open === key ? null : key
+                              )
+                            }
+                            aria-haspopup="menu"
+                            aria-expanded={stateMenuKey === key}
+                            aria-label={`State for “${key}”: ${stateOpt.menuLabel}`}
+                            className={`${stateOpt.badge} inline-flex cursor-pointer items-center gap-1.5 rounded-full py-1 pl-2.5 pr-2 text-xs font-medium transition-opacity hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500/40`}
+                          >
+                            <i
+                              aria-hidden="true"
+                              className={`fa-solid ${stateOpt.icon}`}
+                            />
+                            {stateOpt.label}
+                            <i
+                              aria-hidden="true"
+                              className="fa-solid fa-chevron-down text-[9px] opacity-60"
+                            />
+                          </button>
+                          {stateMenuKey === key && (
+                              <div
+                                role="menu"
+                                aria-label={`Set state for “${key}”`}
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key !== "ArrowDown" &&
+                                    e.key !== "ArrowUp"
+                                  )
+                                    return;
+                                  e.preventDefault();
+                                  const items = [
+                                    ...e.currentTarget.querySelectorAll(
+                                      '[role="menuitemradio"]'
+                                    ),
+                                  ];
+                                  const current = items.indexOf(
+                                    document.activeElement
+                                  );
+                                  const next =
+                                    e.key === "ArrowDown"
+                                      ? (current + 1) % items.length
+                                      : (current - 1 + items.length) %
+                                        items.length;
+                                  items[next]?.focus();
+                                }}
+                                className="absolute right-0 top-full z-50 mt-1.5 w-44 rounded-xl border border-black/[0.08] bg-white/95 p-1 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-gray-900/95"
+                              >
+                                {STATE_OPTIONS.map((o) => {
+                                  const isActive = o.value === stateValue;
+                                  return (
+                                    <button
+                                      key={o.value}
+                                      role="menuitemradio"
+                                      aria-checked={isActive}
+                                      onClick={() => {
+                                        setStateMenuKey(null);
+                                        if (isActive) return;
+                                        setData((prev) => {
+                                          const next = {
+                                            ...prev,
+                                            strings: { ...prev.strings },
+                                          };
+                                          const entry = {
+                                            ...next.strings[key],
+                                          };
+                                          const localizations = {
+                                            ...(entry.localizations || {}),
+                                          };
+                                          localizations[selectedLanguage] =
+                                            setLocalizationState(
+                                              localizations[selectedLanguage],
+                                              o.value
+                                            );
+                                          entry.localizations = localizations;
+                                          next.strings[key] = entry;
+                                          return next;
+                                        });
+                                      }}
+                                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-black/[0.05] dark:text-gray-200 dark:hover:bg-white/10"
+                                    >
+                                      <i
+                                        aria-hidden="true"
+                                        className={`fa-solid ${o.icon} w-4 text-center`}
+                                        style={{ color: `var(${o.colorVar})` }}
+                                      />
+                                      <span className="flex-1">
+                                        {o.menuLabel}
+                                      </span>
+                                      {isActive && (
+                                        <i
+                                          aria-hidden="true"
+                                          className="fa-solid fa-check text-xs text-blue-500 dark:text-blue-400"
+                                        />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
